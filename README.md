@@ -56,7 +56,7 @@ Same pattern as Long Track:
 2. Create a new Railway project from the repo.
 3. Add a **PostgreSQL** plugin and link `DATABASE_URL` to the web service.
 4. Set `LEDGER_ENV=production` and `SECRET_KEY` on the web service.
-5. Railway uses the `Procfile` (`gunicorn app:app`).
+5. Railway uses the `Procfile` (`gunicorn app:app`) and `railway.toml` (runs `flask db upgrade` before deploy).
 
 Health check: `GET /health`
 

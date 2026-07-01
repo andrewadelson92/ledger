@@ -117,21 +117,19 @@ for _name, _fn in (
 
 
 def _bootstrap_database():
+    """Apply migrations on startup for local SQLite; production uses pre-deploy too."""
     uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
-    env = app.config.get("LEDGER_ENV", "development")
     is_sqlite = uri.startswith("sqlite")
-    is_prod = env in ("production", "prod")
 
-    if is_sqlite or not is_prod:
-        from flask_migrate import upgrade
+    from flask_migrate import upgrade
 
-        try:
-            upgrade()
-        except Exception:
-            if is_sqlite:
-                db.create_all()
-            else:
-                raise
+    try:
+        upgrade()
+    except Exception:
+        if is_sqlite:
+            db.create_all()
+        else:
+            raise
 
 
 def _running_flask_db_command() -> bool:
