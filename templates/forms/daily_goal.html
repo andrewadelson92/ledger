@@ -18,11 +18,11 @@
   </div>
 
   <section class="border-t border-zinc-200 pt-8">
-    {{ skills_list_picker(payload.skills or [], 1) }}
+    {{ skills_list_picker(payload.skills|default([], true), 1) }}
   </section>
 
   {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
 </form>
 
-{{ skills_picker_scripts() }}
+{{ skills_picker_scripts(module_skills, skill_module_labels) }}
 {% endblock %}

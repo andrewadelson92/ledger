@@ -1,13 +1,13 @@
 {% from "macros/forms.html" import field_label %}
 
-{% macro skill_picker(module='', skill='', required=true) %}
+{% macro skill_picker(module='', skill='', required=true, module_labels=none) %}
 <div class="skill-picker skill-picker-single space-y-6" data-required="{{ 'true' if required else 'false' }}">
   <div>
     {{ field_label('Module', required) }}
     <select name="module" class="skill-module w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"{% if required %} required{% endif %}>
       <option value="">Select module…</option>
       {% for m in ['DT', 'ER', 'IE', 'M'] %}
-      <option value="{{ m }}" {% if module == m %}selected{% endif %}>{{ skill_module_labels[m] }}</option>
+      <option value="{{ m }}" {% if module == m %}selected{% endif %}>{{ (module_labels or {}).get(m, m) }}</option>
       {% endfor %}
     </select>
   </div>
@@ -41,20 +41,25 @@
     title="Add skill">+</button>
 
   <input type="hidden" name="skills_json" class="skills-json-input" value="">
-  <script type="application/json" class="initial-skills-data">{{ initial_skills|tojson }}</script>
+  <script type="application/json" class="initial-skills-data">{{ initial_skills|default([], true)|tojson }}</script>
 </div>
 {% endmacro %}
 
-{% macro skills_picker_scripts() %}
-<script type="application/json" id="module-skills-data">{{ module_skills|tojson }}</script>
+{% macro skills_picker_scripts(skills_by_module, module_labels) %}
+<script type="application/json" id="module-skills-data">{{ skills_by_module|tojson }}</script>
+<script type="application/json" id="skill-module-labels-data">{{ module_labels|tojson }}</script>
 <script>
 (function() {
   const STORAGE_KEY = 'ledger_saved_skills';
   const CUSTOM_VALUE = '__custom__';
 
   let skillsByModule = {};
+  let moduleLabels = {};
   try {
     skillsByModule = JSON.parse(document.getElementById('module-skills-data').textContent);
+  } catch (e) {}
+  try {
+    moduleLabels = JSON.parse(document.getElementById('skill-module-labels-data').textContent);
   } catch (e) {}
 
   function loadSaved() {
@@ -257,6 +262,11 @@
     }
 
     function createRow(moduleValue, skillValue, canRemove) {
+      let moduleOptions = '<option value="">Select module…</option>';
+      ['DT', 'ER', 'IE', 'M'].forEach(function(mod) {
+        moduleOptions += '<option value="' + mod + '">' + (moduleLabels[mod] || mod) + '</option>';
+      });
+
       const row = document.createElement('div');
       row.className = 'skill-row rounded-lg border border-zinc-200 bg-white p-4 space-y-4';
       row.innerHTML =
@@ -269,10 +279,7 @@
         '<div>' +
           '<label class="block text-sm font-medium text-zinc-800 mb-1">Module<span class="text-zinc-500">*</span></label>' +
           '<select class="skill-module w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" required>' +
-            '<option value="">Select module…</option>' +
-            {% for m in ['DT', 'ER', 'IE', 'M'] %}
-            '<option value="{{ m }}">{{ skill_module_labels[m] }}</option>' +
-            {% endfor %}
+            moduleOptions +
           '</select>' +
         '</div>' +
         '<div>' +
