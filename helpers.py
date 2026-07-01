@@ -49,6 +49,13 @@ def entry_summary(entry) -> str:
             return names
         return _truncate(p.get("description")) or "Check-in"
 
+    if t == "daily_goal":
+        goal = _truncate(p.get("goal"), 60)
+        skills = p.get("skills") or []
+        if goal and skills:
+            return f"{goal} · {len(skills)} skill{'s' if len(skills) != 1 else ''}"
+        return goal or "Daily goal"
+
     if t == "diary_card":
         emotions = p.get("emotions") or []
         urges = p.get("urges") or []
@@ -108,6 +115,26 @@ def entry_summary(entry) -> str:
         return _truncate(p.get("text")) or "Journal"
 
     return type_label(t)
+
+
+def parse_skills_json(raw: str | None) -> list[dict]:
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    skills = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        module = (item.get("module") or "").strip()
+        skill = (item.get("skill") or "").strip()
+        if module and skill:
+            skills.append({"module": module, "skill": skill})
+    return skills
 
 
 def parse_emotions_json(raw: str | None, intensity_key: str = "intensity") -> list[dict]:
@@ -317,6 +344,12 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         payload = {
             "emotions": parse_emotions_json(form.get("emotions_json")),
             "description": (form.get("description") or "").strip(),
+        }
+
+    elif entry_type == "daily_goal":
+        payload = {
+            "goal": (form.get("goal") or "").strip(),
+            "skills": parse_skills_json(form.get("skills_json")),
         }
 
     elif entry_type == "diary_card":

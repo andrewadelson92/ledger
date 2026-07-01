@@ -1,0 +1,354 @@
+{% from "macros/forms.html" import field_label %}
+
+{% macro skill_picker(module='', skill='', required=true) %}
+<div class="skill-picker skill-picker-single space-y-6" data-required="{{ 'true' if required else 'false' }}">
+  <div>
+    {{ field_label('Module', required) }}
+    <select name="module" class="skill-module w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"{% if required %} required{% endif %}>
+      <option value="">Select module…</option>
+      {% for m in ['DT', 'ER', 'IE', 'M'] %}
+      <option value="{{ m }}" {% if module == m %}selected{% endif %}>{{ skill_module_labels[m] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    {{ field_label('Skill', required) }}
+    <select class="skill-select w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"{% if required %} required{% endif %}>
+      <option value="">Select skill…</option>
+    </select>
+    <input type="text"
+      class="skill-custom mt-2 hidden w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+      placeholder="Type your skill…"
+      aria-label="Custom skill">
+    <input type="hidden" name="skill" class="skill-value" value="{{ skill }}">
+  </div>
+</div>
+{% endmacro %}
+
+{% macro skills_list_picker(initial_skills=[], min_count=1) %}
+<div class="skills-list-picker space-y-4" data-min-count="{{ min_count }}">
+  <div>
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Skills used</h2>
+    <p class="text-sm text-zinc-600">Add at least one skill you used for this goal. Custom skills are saved for next time.</p>
+  </div>
+
+  <div class="skill-rows space-y-4"></div>
+
+  <button type="button"
+    class="add-skill-row inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-lg font-medium leading-none text-zinc-700 hover:bg-zinc-50"
+    aria-label="Add skill"
+    title="Add skill">+</button>
+
+  <input type="hidden" name="skills_json" class="skills-json-input" value="">
+  <script type="application/json" class="initial-skills-data">{{ initial_skills|tojson }}</script>
+</div>
+{% endmacro %}
+
+{% macro skills_picker_scripts() %}
+<script type="application/json" id="module-skills-data">{{ module_skills|tojson }}</script>
+<script>
+(function() {
+  const STORAGE_KEY = 'ledger_saved_skills';
+  const CUSTOM_VALUE = '__custom__';
+
+  let skillsByModule = {};
+  try {
+    skillsByModule = JSON.parse(document.getElementById('module-skills-data').textContent);
+  } catch (e) {}
+
+  function loadSaved() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed.filter(function(item) {
+        return item && item.module && item.skill;
+      }) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveSaved(list) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    window.dispatchEvent(new CustomEvent('ledger-saved-skills-changed'));
+  }
+
+  function isBuiltinSkill(module, skill) {
+    const lower = (skill || '').trim().toLowerCase();
+    if (!module || !lower) return false;
+    return (skillsByModule[module] || []).some(function(name) {
+      return name.toLowerCase() === lower;
+    });
+  }
+
+  function rememberSkill(module, skill) {
+    const mod = (module || '').trim();
+    const trimmed = (skill || '').trim();
+    if (!mod || !trimmed || isBuiltinSkill(mod, trimmed)) return;
+    const saved = loadSaved();
+    const exists = saved.some(function(item) {
+      return item.module === mod && item.skill.toLowerCase() === trimmed.toLowerCase();
+    });
+    if (!exists) {
+      saved.push({ module: mod, skill: trimmed });
+      saveSaved(saved);
+    }
+  }
+
+  function savedSkillsForModule(module) {
+    const seen = {};
+    const result = [];
+    loadSaved().forEach(function(item) {
+      if (item.module !== module) return;
+      const key = item.skill.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+      result.push(item.skill);
+    });
+    return result;
+  }
+
+  function populateSkillSelect(moduleSelect, skillSelect, currentSkill) {
+    const mod = moduleSelect.value;
+    skillSelect.innerHTML = '<option value="">Select skill…</option>';
+    if (!mod) return;
+
+    const saved = savedSkillsForModule(mod);
+    if (saved.length) {
+      const group = document.createElement('optgroup');
+      group.label = 'Saved';
+      saved.forEach(function(skill) {
+        const opt = document.createElement('option');
+        opt.value = skill;
+        opt.textContent = skill;
+        if (skill === currentSkill) opt.selected = true;
+        group.appendChild(opt);
+      });
+      skillSelect.appendChild(group);
+    }
+
+    (skillsByModule[mod] || []).forEach(function(skill) {
+      const opt = document.createElement('option');
+      opt.value = skill;
+      opt.textContent = skill;
+      if (skill === currentSkill) opt.selected = true;
+      skillSelect.appendChild(opt);
+    });
+
+    const customOpt = document.createElement('option');
+    customOpt.value = CUSTOM_VALUE;
+    customOpt.textContent = 'Other — type your own';
+    skillSelect.appendChild(customOpt);
+
+    if (currentSkill && !Array.from(skillSelect.options).some(function(opt) {
+      return opt.value === currentSkill;
+    })) {
+      skillSelect.value = CUSTOM_VALUE;
+    }
+  }
+
+  function bindSkillControls(row, options) {
+    const moduleSelect = row.querySelector('.skill-module');
+    const skillSelect = row.querySelector('.skill-select');
+    const customInput = row.querySelector('.skill-custom');
+    const valueInput = row.querySelector('.skill-value');
+    const ieWrap = options && options.ieWrap;
+    const onChange = options && options.onChange;
+
+    if (!moduleSelect || !skillSelect) return;
+
+    function syncCustomVisibility() {
+      const isCustom = skillSelect.value === CUSTOM_VALUE;
+      customInput.classList.toggle('hidden', !isCustom);
+      if (isCustom) {
+        customInput.focus();
+      }
+    }
+
+    function syncValue() {
+      let skill = '';
+      if (skillSelect.value === CUSTOM_VALUE) {
+        skill = (customInput.value || '').trim();
+      } else {
+        skill = (skillSelect.value || '').trim();
+      }
+      if (valueInput) {
+        valueInput.value = skill;
+      }
+      if (ieWrap) {
+        ieWrap.classList.toggle('hidden', moduleSelect.value !== 'IE');
+      }
+      if (onChange) onChange();
+    }
+
+    function refreshSkills() {
+      const current = valueInput ? valueInput.value : skillSelect.value;
+      populateSkillSelect(moduleSelect, skillSelect, current);
+      if (valueInput && valueInput.value && skillSelect.value !== CUSTOM_VALUE) {
+        skillSelect.value = valueInput.value;
+      }
+      syncCustomVisibility();
+      syncValue();
+    }
+
+    moduleSelect.addEventListener('change', refreshSkills);
+    skillSelect.addEventListener('change', function() {
+      syncCustomVisibility();
+      syncValue();
+    });
+    customInput.addEventListener('input', syncValue);
+
+    refreshSkills();
+  }
+
+  function rememberFromSinglePicker(picker) {
+    const moduleSelect = picker.querySelector('.skill-module');
+    const valueInput = picker.querySelector('.skill-value');
+    if (!moduleSelect || !valueInput) return;
+    rememberSkill(moduleSelect.value, valueInput.value);
+  }
+
+  function rememberFromListPicker(picker) {
+    picker.querySelectorAll('.skill-row').forEach(function(row) {
+      const moduleSelect = row.querySelector('.skill-module');
+      const valueInput = row.querySelector('.skill-value');
+      if (moduleSelect && valueInput) {
+        rememberSkill(moduleSelect.value, valueInput.value);
+      }
+    });
+  }
+
+  document.querySelectorAll('.skill-picker-single').forEach(function(picker) {
+    bindSkillControls(picker, {
+      ieWrap: document.getElementById('ie-people-wrap'),
+    });
+    const form = picker.closest('form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        rememberFromSinglePicker(picker);
+      });
+    }
+  });
+
+  document.querySelectorAll('.skills-list-picker').forEach(function(picker) {
+    const rowsWrap = picker.querySelector('.skill-rows');
+    const hidden = picker.querySelector('.skills-json-input');
+    const addBtn = picker.querySelector('.add-skill-row');
+    const minCount = parseInt(picker.dataset.minCount, 10) || 1;
+
+    let initialSkills = [];
+    try {
+      initialSkills = JSON.parse(picker.querySelector('.initial-skills-data').textContent);
+    } catch (e) {}
+
+    function syncHidden() {
+      const skills = [];
+      rowsWrap.querySelectorAll('.skill-row').forEach(function(row) {
+        const moduleSelect = row.querySelector('.skill-module');
+        const valueInput = row.querySelector('.skill-value');
+        const mod = (moduleSelect.value || '').trim();
+        const skill = (valueInput.value || '').trim();
+        if (mod && skill) {
+          skills.push({ module: mod, skill: skill });
+        }
+      });
+      hidden.value = JSON.stringify(skills);
+    }
+
+    function createRow(moduleValue, skillValue, canRemove) {
+      const row = document.createElement('div');
+      row.className = 'skill-row rounded-lg border border-zinc-200 bg-white p-4 space-y-4';
+      row.innerHTML =
+        '<div class="flex items-start justify-between gap-3">' +
+          '<span class="text-sm font-medium text-zinc-800 pt-2">Skill</span>' +
+          (canRemove
+            ? '<button type="button" class="remove-skill-row text-zinc-400 hover:text-zinc-900 text-lg leading-none" aria-label="Remove skill">&times;</button>'
+            : '') +
+        '</div>' +
+        '<div>' +
+          '<label class="block text-sm font-medium text-zinc-800 mb-1">Module<span class="text-zinc-500">*</span></label>' +
+          '<select class="skill-module w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" required>' +
+            '<option value="">Select module…</option>' +
+            {% for m in ['DT', 'ER', 'IE', 'M'] %}
+            '<option value="{{ m }}">{{ skill_module_labels[m] }}</option>' +
+            {% endfor %}
+          '</select>' +
+        '</div>' +
+        '<div>' +
+          '<label class="block text-sm font-medium text-zinc-800 mb-1">Skill<span class="text-zinc-500">*</span></label>' +
+          '<select class="skill-select w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" required>' +
+            '<option value="">Select skill…</option>' +
+          '</select>' +
+          '<input type="text" class="skill-custom mt-2 hidden w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500" placeholder="Type your skill…" aria-label="Custom skill">' +
+          '<input type="hidden" class="skill-value" value="">' +
+        '</div>';
+
+      const moduleSelect = row.querySelector('.skill-module');
+      const valueInput = row.querySelector('.skill-value');
+      if (moduleValue) moduleSelect.value = moduleValue;
+      if (skillValue) valueInput.value = skillValue;
+
+      bindSkillControls(row, { onChange: syncHidden });
+
+      const removeBtn = row.querySelector('.remove-skill-row');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+          row.remove();
+          syncHidden();
+        });
+      }
+
+      return row;
+    }
+
+    function ensureMinRows() {
+      const count = rowsWrap.querySelectorAll('.skill-row').length;
+      for (let i = count; i < minCount; i++) {
+        rowsWrap.appendChild(createRow('', '', i >= minCount));
+      }
+    }
+
+    if (initialSkills.length) {
+      initialSkills.forEach(function(item, index) {
+        rowsWrap.appendChild(createRow(item.module || '', item.skill || '', index >= minCount));
+      });
+    } else {
+      ensureMinRows();
+    }
+
+    addBtn.addEventListener('click', function() {
+      rowsWrap.appendChild(createRow('', '', true));
+      syncHidden();
+    });
+
+    syncHidden();
+
+    const form = picker.closest('form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        rememberFromListPicker(picker);
+        syncHidden();
+      });
+    }
+  });
+
+  window.addEventListener('ledger-saved-skills-changed', function() {
+    document.querySelectorAll('.skill-picker-single, .skills-list-picker .skill-row').forEach(function(el) {
+      const moduleSelect = el.querySelector('.skill-module');
+      const skillSelect = el.querySelector('.skill-select');
+      const valueInput = el.querySelector('.skill-value');
+      if (moduleSelect && skillSelect) {
+        populateSkillSelect(moduleSelect, skillSelect, valueInput ? valueInput.value : '');
+      }
+    });
+  });
+
+  window.addEventListener('storage', function(e) {
+    if (e.key === STORAGE_KEY) {
+      window.dispatchEvent(new CustomEvent('ledger-saved-skills-changed'));
+    }
+  });
+})();
+</script>
+{% endmacro %}

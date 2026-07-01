@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "macros/forms.html" import field_label, text_input, form_actions %}
+{% from "macros/skills.html" import skill_picker, skills_picker_scripts %}
 
 {% block document_title %}Ledger · {{ entry_label }}{% endblock %}
 
@@ -10,24 +11,7 @@
   action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
   class="space-y-6">
 
-  <div>
-    {{ field_label('Module', true) }}
-    <select name="module" id="skill-module" required
-      class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
-      <option value="">Select module…</option>
-      {% for m in ['DT', 'ER', 'IE', 'M'] %}
-      <option value="{{ m }}" {% if payload.module == m %}selected{% endif %}>{{ skill_module_labels[m] }}</option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <div>
-    {{ field_label('Skill', true) }}
-    <select name="skill" id="skill-name" required
-      class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
-      <option value="">Select skill…</option>
-    </select>
-  </div>
+  {{ skill_picker(payload.module or '', payload.skill or '') }}
 
   <div id="ie-people-wrap" class="hidden">
     <label class="flex items-center gap-2 text-sm text-zinc-700">
@@ -46,30 +30,5 @@
   {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
 </form>
 
-<script type="application/json" id="module-skills-data">{{ module_skills|tojson }}</script>
-<script>
-(function() {
-  const skillsByModule = JSON.parse(document.getElementById('module-skills-data').textContent);
-  const moduleSelect = document.getElementById('skill-module');
-  const skillSelect = document.getElementById('skill-name');
-  const ieWrap = document.getElementById('ie-people-wrap');
-  const currentSkill = {{ (payload.skill or '')|tojson }};
-
-  function populateSkills() {
-    const mod = moduleSelect.value;
-    skillSelect.innerHTML = '<option value="">Select skill…</option>';
-    (skillsByModule[mod] || []).forEach(function(skill) {
-      const opt = document.createElement('option');
-      opt.value = skill;
-      opt.textContent = skill;
-      if (skill === currentSkill) opt.selected = true;
-      skillSelect.appendChild(opt);
-    });
-    ieWrap.classList.toggle('hidden', mod !== 'IE');
-  }
-
-  moduleSelect.addEventListener('change', populateSkills);
-  populateSkills();
-})();
-</script>
+{{ skills_picker_scripts() }}
 {% endblock %}

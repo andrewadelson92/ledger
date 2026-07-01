@@ -10,6 +10,7 @@ from models import Entry
 from constants import (
     ENTRY_TYPES,
     ENTRY_TYPE_LABELS,
+    HOME_ADD_LABELS,
     MODULE_SKILLS,
     SKILL_MODULE_LABELS,
     EMOTION_WHEEL,
@@ -177,7 +178,7 @@ def index():
                 "title": p.get("situation"),
             })
     add_options = [
-        {"type": t, "label": ENTRY_TYPE_LABELS[t]}
+        {"type": t, "label": HOME_ADD_LABELS.get(t, ENTRY_TYPE_LABELS[t])}
         for t in ENTRY_TYPES
         if t not in ADD_HIDDEN_TYPES
     ]
@@ -298,6 +299,19 @@ def new_entry(entry_type):
                 f"forms/{entry_type}.html",
                 **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
             )
+        if entry_type == "daily_goal":
+            if not payload.get("goal"):
+                flash("Daily goal is required.")
+                return render_template(
+                    f"forms/{entry_type}.html",
+                    **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+                )
+            if not payload.get("skills"):
+                flash("Add at least one skill used for your daily goal.")
+                return render_template(
+                    f"forms/{entry_type}.html",
+                    **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+                )
         entry = Entry(
             type=entry_type,
             payload=payload,
@@ -465,6 +479,35 @@ def entry_edit(entry_id):
                 )
             if not exposure_has_plan(payload):
                 flash("Rate SUDS before and predicted peak SUDS.")
+                return render_template(
+                    f"forms/{entry.type}.html",
+                    **_form_render_ctx(
+                        entry.type,
+                        payload,
+                        is_edit=True,
+                        entry_id=entry.id,
+                        exposure_plans=[],
+                        linked_entry_id=entry.linked_entry_id,
+                        secondary_tag=entry.secondary_tag,
+                    ),
+                )
+        if entry.type == "daily_goal":
+            if not payload.get("goal"):
+                flash("Daily goal is required.")
+                return render_template(
+                    f"forms/{entry.type}.html",
+                    **_form_render_ctx(
+                        entry.type,
+                        payload,
+                        is_edit=True,
+                        entry_id=entry.id,
+                        exposure_plans=[],
+                        linked_entry_id=entry.linked_entry_id,
+                        secondary_tag=entry.secondary_tag,
+                    ),
+                )
+            if not payload.get("skills"):
+                flash("Add at least one skill used for your daily goal.")
                 return render_template(
                     f"forms/{entry.type}.html",
                     **_form_render_ctx(

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, form_actions %}
+{% from "macros/skills.html" import skills_list_picker, skills_picker_scripts %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">Set a goal for today and log at least one skill you use to work toward it.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-8">
+
+  <div>
+    {{ field_label('Daily goal', true) }}
+    {{ text_input('goal', payload.goal or '', rows=3, required=true, placeholder='What do you want to accomplish today?') }}
+  </div>
+
+  <section class="border-t border-zinc-200 pt-8">
+    {{ skills_list_picker(payload.skills or [], 1) }}
+  </section>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+</form>
+
+{{ skills_picker_scripts() }}
+{% endblock %}
