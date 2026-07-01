@@ -27,9 +27,9 @@
   class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500">
 {% endmacro %}
 
-{% macro journal_fields(payload={}, text_required=false, text_rows=12) %}
+{% macro journal_fields(payload={}, text_required=false, text_rows=12, label='Entry') %}
 <div>
-  {{ field_label('Entry', text_required) }}
+  {{ field_label(label, text_required) }}
   {{ text_input('text', payload.text or '', rows=text_rows, required=text_required, placeholder='Write freely…') }}
 </div>
 {% endmacro %}
