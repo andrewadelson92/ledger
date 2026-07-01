@@ -187,9 +187,10 @@ def parse_diary_card_emotions(form) -> list[dict]:
     return out
 
 
-def parse_journal_fields(form) -> dict:
+def parse_journal_fields(form, existing: dict | None = None) -> dict:
+    existing = existing or {}
     return {
-        "title": (form.get("title") or "").strip(),
+        "title": (existing.get("title") or "").strip(),
         "text": (form.get("text") or "").strip(),
     }
 
@@ -208,13 +209,14 @@ def sync_diary_card_journal(diary_entry, form) -> None:
 
     fields = parse_journal_fields(form)
     existing = linked_journal_for(diary_entry)
+    existing_payload = (existing.payload or {}) if existing else {}
 
     if not fields["text"]:
         if existing:
             db.session.delete(existing)
         return
 
-    payload = {"title": fields["title"], "text": fields["text"]}
+    payload = parse_journal_fields(form, existing_payload)
     if existing:
         existing.payload = payload
         existing.updated_at = datetime.utcnow()
@@ -379,10 +381,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         }
 
     elif entry_type == "journal":
-        payload = {
-            "title": (form.get("title") or "").strip(),
-            "text": (form.get("text") or "").strip(),
-        }
+        payload = parse_journal_fields(form)
 
     else:
         payload = {}

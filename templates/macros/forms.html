@@ -29,10 +29,6 @@
 
 {% macro journal_fields(payload={}, text_required=false, text_rows=12) %}
 <div>
-  {{ field_label('Title (optional)') }}
-  {{ text_input('title', payload.title or '', placeholder='A short label, if you want one') }}
-</div>
-<div>
   {{ field_label('Entry', text_required) }}
   {{ text_input('text', payload.text or '', rows=text_rows, required=text_required, placeholder='Write freely…') }}
 </div>

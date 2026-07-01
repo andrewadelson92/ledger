@@ -215,10 +215,11 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
     if entry_type == "diary_card":
         ctx["extra_emotions"] = diary_card_extra_emotions(ctx["payload"].get("emotions"))
         if form is not None:
-            ctx["journal_payload"] = parse_journal_fields(form)
+            ctx["journal_payload"] = {"text": parse_journal_fields(form).get("text", "")}
         elif entry is not None:
             linked = linked_journal_for(entry)
-            ctx["journal_payload"] = dict(linked.payload) if linked and linked.payload else {}
+            journal_payload = dict(linked.payload) if linked and linked.payload else {}
+            ctx["journal_payload"] = {"text": journal_payload.get("text", "")}
         else:
             ctx["journal_payload"] = {}
     return ctx
@@ -396,6 +397,10 @@ def entry_edit(entry_id):
             secondary_tag = entry.secondary_tag
         elif entry.type == "exposure_plan":
             payload = parse_exposure_plan(request.form, existing=entry.payload or {})
+            linked_entry_id = entry.linked_entry_id
+            secondary_tag = entry.secondary_tag
+        elif entry.type == "journal":
+            payload = parse_journal_fields(request.form, existing=entry.payload or {})
             linked_entry_id = entry.linked_entry_id
             secondary_tag = entry.secondary_tag
         else:
