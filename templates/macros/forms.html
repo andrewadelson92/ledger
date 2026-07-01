@@ -1,0 +1,49 @@
+{% macro field_label(text, required=false) %}
+<label class="block text-sm font-medium text-zinc-800 mb-1">
+  {{ text }}{% if required %}<span class="text-zinc-500">*</span>{% endif %}
+</label>
+{% endmacro %}
+
+{% macro text_input(name, value='', placeholder='', required=false, rows=1) %}
+{% if rows > 1 %}
+<textarea name="{{ name }}" rows="{{ rows }}"
+  class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+  placeholder="{{ placeholder }}"{% if required %} required{% endif %}>{{ value }}</textarea>
+{% else %}
+<input type="text" name="{{ name }}" value="{{ value }}"
+  class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+  placeholder="{{ placeholder }}"{% if required %} required{% endif %}>
+{% endif %}
+{% endmacro %}
+
+{% macro number_input(name, value='', min=1, max=10, required=false, label='') %}
+<input type="number" name="{{ name }}" value="{{ value }}" min="{{ min }}" max="{{ max }}"
+  class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+  {% if label %}aria-label="{{ label }}"{% endif %}{% if required %} required{% endif %}>
+{% endmacro %}
+
+{% macro datetime_input(name, value='') %}
+<input type="datetime-local" name="{{ name }}" value="{{ value }}"
+  class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500">
+{% endmacro %}
+
+{% macro journal_fields(payload={}, text_required=false, text_rows=12) %}
+<div>
+  {{ field_label('Title (optional)') }}
+  {{ text_input('title', payload.title or '', placeholder='A short label, if you want one') }}
+</div>
+<div>
+  {{ field_label('Entry', text_required) }}
+  {{ text_input('text', payload.text or '', rows=text_rows, required=text_required, placeholder='Write freely…') }}
+</div>
+{% endmacro %}
+
+{% macro form_actions(cancel_url, submit_label='Save') %}
+<div class="flex items-center gap-3 pt-2">
+  <button type="submit"
+    class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+    {{ submit_label }}
+  </button>
+  <a href="{{ cancel_url }}" class="text-sm text-zinc-600 hover:text-zinc-900">Cancel</a>
+</div>
+{% endmacro %}

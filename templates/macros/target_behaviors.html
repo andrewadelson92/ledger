@@ -1,0 +1,144 @@
+{% macro target_behavior_urges(initial_urges=[]) %}
+<div class="target-behavior-urges space-y-4" data-storage-key="ledger_target_behaviors">
+  <div>
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Target behavior urges</h2>
+    <p class="text-sm text-zinc-600">Rate each target behavior 1–5. Add behaviors you track — they are remembered for next time.</p>
+  </div>
+
+  <div class="urge-rows space-y-3"></div>
+
+  <p class="text-sm text-zinc-500 urge-empty hidden">No target behaviors yet. Add one below.</p>
+
+  <div class="flex gap-2">
+    <input type="text"
+      class="new-behavior-input flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+      placeholder="Add a target behavior">
+    <button type="button"
+      class="add-behavior shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+      Add
+    </button>
+  </div>
+
+  <input type="hidden" name="urges_json" class="urges-json-input" value="">
+  <script type="application/json" class="initial-urges-data">{{ initial_urges|tojson }}</script>
+</div>
+
+<script>
+(function() {
+  const script = document.currentScript;
+  const container = script.previousElementSibling;
+  if (!container || !container.classList.contains('target-behavior-urges')) return;
+
+  const storageKey = container.dataset.storageKey || 'ledger_target_behaviors';
+  const rowsWrap = container.querySelector('.urge-rows');
+  const emptyMsg = container.querySelector('.urge-empty');
+  const hidden = container.querySelector('.urges-json-input');
+  const newInput = container.querySelector('.new-behavior-input');
+  const addBtn = container.querySelector('.add-behavior');
+
+  let initialUrges = {};
+  try {
+    JSON.parse(container.querySelector('.initial-urges-data').textContent).forEach(function(u) {
+      if (u.behavior) initialUrges[u.behavior] = u.intensity || 3;
+    });
+  } catch (e) {}
+
+  function loadBehaviors() {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveBehaviors(list) {
+    localStorage.setItem(storageKey, JSON.stringify(list));
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+
+  function syncHidden() {
+    const urges = [];
+    rowsWrap.querySelectorAll('.urge-row').forEach(function(row) {
+      const behavior = row.dataset.behavior;
+      const slider = row.querySelector('.urge-intensity');
+      if (behavior && slider && slider.value) {
+        urges.push({ behavior: behavior, intensity: parseInt(slider.value, 10) });
+      }
+    });
+    hidden.value = JSON.stringify(urges);
+  }
+
+  function render() {
+    const behaviors = loadBehaviors();
+    emptyMsg.classList.toggle('hidden', behaviors.length > 0);
+    rowsWrap.innerHTML = '';
+
+    behaviors.forEach(function(behavior) {
+      const intensity = initialUrges[behavior] || 3;
+      const row = document.createElement('div');
+      row.className = 'urge-row flex items-center gap-3 rounded-md border border-zinc-200 bg-white px-3 py-2';
+      row.dataset.behavior = behavior;
+      row.innerHTML =
+        '<span class="text-sm font-medium text-zinc-800 flex-1 min-w-0">' + escapeHtml(behavior) + '</span>' +
+        '<input type="range" min="1" max="5" value="' + intensity + '" class="urge-intensity w-32 accent-zinc-900" aria-label="Urge intensity for ' + escapeHtml(behavior) + '">' +
+        '<span class="text-sm text-zinc-600 w-6 text-center urge-val">' + intensity + '</span>' +
+        '<button type="button" class="remove-behavior text-zinc-400 hover:text-zinc-900 text-lg leading-none" aria-label="Remove ' + escapeHtml(behavior) + '">&times;</button>';
+
+      const slider = row.querySelector('.urge-intensity');
+      const val = row.querySelector('.urge-val');
+      slider.addEventListener('input', function() {
+        val.textContent = slider.value;
+        syncHidden();
+      });
+      row.querySelector('.remove-behavior').addEventListener('click', function() {
+        const list = loadBehaviors().filter(function(b) {
+          return b.toLowerCase() !== behavior.toLowerCase();
+        });
+        saveBehaviors(list);
+        delete initialUrges[behavior];
+        render();
+        syncHidden();
+      });
+      rowsWrap.appendChild(row);
+    });
+    syncHidden();
+  }
+
+  function addBehavior(name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    const list = loadBehaviors();
+    if (list.some(function(b) { return b.toLowerCase() === trimmed.toLowerCase(); })) return;
+    list.push(trimmed);
+    saveBehaviors(list);
+    newInput.value = '';
+    render();
+  }
+
+  addBtn.addEventListener('click', function() {
+    addBehavior(newInput.value);
+  });
+  newInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addBehavior(newInput.value);
+    }
+  });
+
+  render();
+
+  const form = container.closest('form');
+  if (form) {
+    form.addEventListener('submit', syncHidden);
+  }
+})();
+</script>
+{% endmacro %}

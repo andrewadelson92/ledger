@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, form_actions, journal_fields %}
+{% from "macros/emotion_wheel.html" import emotion_wheel_picker %}
+{% from "macros/target_behaviors.html" import target_behavior_urges %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">Rate each emotion and target behavior urge (1–5). Add a journal entry if helpful.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-8">
+
+  <section>
+    <h2 class="text-sm font-medium text-zinc-800 mb-3">Emotions</h2>
+    <ul class="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
+      {% for name, intensity in diary_card_emotion_values(payload.emotions) %}
+      <li class="flex items-center gap-3">
+        <span class="text-sm font-medium text-zinc-800 w-28 shrink-0">{{ name }}</span>
+        <input type="range" min="1" max="5" value="{{ intensity }}"
+          name="{{ diary_emotion_field_name(name) }}"
+          class="flex-1 accent-zinc-900 diary-fixed-intensity"
+          aria-label="{{ name }} intensity">
+        <span class="text-sm text-zinc-600 w-6 text-center intensity-val">{{ intensity }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="mt-4">
+      <h3 class="text-sm font-medium text-zinc-800 mb-2">Additional emotions</h3>
+      {{ emotion_wheel_picker(
+        emotion_wheel,
+        'extra_emotions_json',
+        extra_emotions,
+        'intensity',
+        5,
+        start_empty=true,
+        add_label='Add another emotion'
+      ) }}
+    </div>
+  </section>
+
+  <section class="border-t border-zinc-200 pt-8">
+    {{ target_behavior_urges(payload.urges or []) }}
+  </section>
+
+  <section class="border-t border-zinc-200 pt-8 space-y-4">
+    <h2 class="text-sm font-medium text-zinc-800">Journal (optional)</h2>
+    {{ journal_fields(journal_payload, false, 8) }}
+  </section>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+</form>
+
+<script>
+(function() {
+  document.querySelectorAll('.diary-fixed-intensity').forEach(function(slider) {
+    const val = slider.nextElementSibling;
+    if (!val) return;
+    slider.addEventListener('input', function() {
+      val.textContent = slider.value;
+    });
+  });
+})();
+</script>
+{% endblock %}

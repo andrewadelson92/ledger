@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block document_title %}Ledger · Home{% endblock %}
+
+{% block content %}
+<nav class="mb-6 flex border-b border-zinc-200" aria-label="Home sections">
+  <a href="{{ url_for('index', tab='add') }}"
+     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {% if tab == 'add' %}border-zinc-900 text-zinc-900{% else %}border-transparent text-zinc-600 hover:text-zinc-900{% endif %}">
+    Add
+  </a>
+  <a href="{{ url_for('index', tab='log') }}"
+     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {% if tab == 'log' %}border-zinc-900 text-zinc-900{% else %}border-transparent text-zinc-600 hover:text-zinc-900{% endif %}">
+    Log
+  </a>
+</nav>
+
+{% if in_progress_items %}
+<section class="mb-6 rounded-lg border border-zinc-300 bg-zinc-100 p-4" aria-label="In progress">
+  <h2 class="text-sm font-medium text-zinc-900 mb-3">In progress</h2>
+  <ul class="space-y-2">
+    {% for item in in_progress_items %}
+    <li class="flex items-stretch gap-2">
+      <a href="{{ url_for('entry_detail', entry_id=item.entry.id) }}"
+         class="flex flex-1 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white px-4 py-3 hover:border-zinc-300">
+        <div class="min-w-0">
+          <p class="text-xs text-zinc-500">{{ item.kind }}</p>
+          <p class="text-sm font-medium text-zinc-900 truncate">{{ item.title or item.kind }}</p>
+        </div>
+        <span class="shrink-0 text-xs text-zinc-600">Complete →</span>
+      </a>
+      <form method="post" action="{{ url_for('entry_delete', entry_id=item.entry.id) }}"
+        onsubmit="return confirm('Delete this {{ item.kind|lower }}?');">
+        <button type="submit"
+          class="h-full rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          aria-label="Delete {{ item.title or item.kind }}">
+          Delete
+        </button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if tab == 'add' %}
+<div>
+  <p class="text-sm text-zinc-600 mb-6">Choose what to log.</p>
+  <div class="grid gap-3 sm:grid-cols-2">
+    {% for opt in add_options %}
+    <a href="{{ url_for('new_entry', entry_type=opt.type) }}"
+       class="rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300 hover:shadow-sm transition">
+      <p class="font-medium text-zinc-900">{{ opt.label }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% else %}
+{% if cards %}
+<ul class="space-y-2">
+  {% for card in cards %}
+  <li>
+    <a href="{{ url_for('entry_detail', entry_id=card.entry.id) }}"
+       class="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 hover:border-zinc-300">
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-medium text-zinc-900">{{ card.label }}</p>
+      </div>
+      <time class="shrink-0 text-xs text-zinc-500">{{ card.entry.created_at|fmt_local }}</time>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="rounded-lg border border-dashed border-zinc-300 bg-white px-6 py-12 text-center">
+  <p class="text-zinc-600 mb-4">No entries yet.</p>
+  <a href="{{ url_for('index', tab='add') }}"
+     class="text-sm font-medium text-zinc-900 hover:underline">
+    Add your first entry →
+  </a>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

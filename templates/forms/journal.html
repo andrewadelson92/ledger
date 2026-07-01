@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import form_actions, journal_fields %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">Free-form — no structure required. Log whatever fits the moment.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-6">
+
+  {{ journal_fields(payload, true) }}
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+</form>
+{% endblock %}

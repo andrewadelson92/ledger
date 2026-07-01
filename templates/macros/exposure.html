@@ -1,0 +1,81 @@
+{% from "macros/forms.html" import field_label, number_input, text_input %}
+
+{% macro exposure_plan_fields(payload) %}
+<div class="grid gap-4 sm:grid-cols-2">
+  <div>
+    {{ field_label('SUDS before (0–10)', true) }}
+    {{ number_input('suds_before', payload.suds_before if payload.suds_before is not none else '', 0, 10, true, 'SUDS before') }}
+  </div>
+  <div>
+    {{ field_label('Predicted peak SUDS (0–10)', true) }}
+    {{ number_input('predicted_peak_suds', payload.predicted_peak_suds if payload.predicted_peak_suds is not none else (payload.predicted_suds if payload.predicted_suds is not none else ''), 0, 10, true, 'Predicted peak SUDS') }}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro exposure_plan_reference(payload) %}
+<div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2 text-sm">
+  <h3 class="text-sm font-medium text-zinc-900">What you reported before</h3>
+  <div class="grid gap-2 sm:grid-cols-2 text-zinc-700">
+    <p><span class="text-zinc-500">SUDS before:</span> {{ payload.suds_before }}/10</p>
+    <p><span class="text-zinc-500">Predicted peak:</span> {{ exposure_predicted_peak(payload) }}/10</p>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro exposure_outcome_fields(payload) %}
+<div class="grid gap-4 sm:grid-cols-2">
+  <div>
+    {{ field_label('SUDS peak (0–10)', true) }}
+    {{ number_input('suds_peak', payload.suds_peak if payload.suds_peak is not none else '', 0, 10, true, 'SUDS peak') }}
+  </div>
+  <div>
+    {{ field_label('SUDS after (0–10)', true) }}
+    {{ number_input('suds_after', payload.suds_after if payload.suds_after is not none else '', 0, 10, true, 'SUDS after') }}
+  </div>
+</div>
+<div>
+  {{ field_label('Avoidance or safety behaviors') }}
+  {{ text_input('avoidance_or_safety_behaviors', payload.avoidance_or_safety_behaviors or '', rows=3) }}
+</div>
+<div>
+  {{ field_label('Additional notes') }}
+  {{ text_input('notes', payload.notes or '', rows=3) }}
+</div>
+{% endmacro %}
+
+{% macro exposure_complete_summary(payload) %}
+<div class="rounded-lg border border-zinc-200 bg-white p-4">
+  <h2 class="text-sm font-medium text-zinc-800 mb-3">SUDS</h2>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+    <div>
+      <p class="text-zinc-500 mb-1">Before</p>
+      <p class="font-medium text-zinc-900">{{ payload.suds_before }}/10</p>
+    </div>
+    <div>
+      <p class="text-zinc-500 mb-1">Predicted peak</p>
+      <p class="font-medium text-zinc-900">{{ exposure_predicted_peak(payload) }}/10</p>
+    </div>
+    <div>
+      <p class="text-zinc-500 mb-1">Peak</p>
+      <p class="font-medium text-zinc-900">{{ payload.suds_peak }}/10</p>
+    </div>
+    <div>
+      <p class="text-zinc-500 mb-1">After</p>
+      <p class="font-medium text-zinc-900">{{ payload.suds_after }}/10</p>
+    </div>
+  </div>
+</div>
+{% if payload.avoidance_or_safety_behaviors %}
+<div class="rounded-lg border border-zinc-200 bg-white p-4 text-sm">
+  <h2 class="text-sm font-medium text-zinc-800 mb-1">Avoidance or safety behaviors</h2>
+  <p class="text-zinc-700 whitespace-pre-wrap">{{ payload.avoidance_or_safety_behaviors }}</p>
+</div>
+{% endif %}
+{% if payload.notes %}
+<div class="rounded-lg border border-zinc-200 bg-zinc-100 p-4 text-sm">
+  <h2 class="text-sm font-medium text-zinc-800 mb-1">Additional notes</h2>
+  <p class="text-zinc-700 whitespace-pre-wrap">{{ payload.notes }}</p>
+</div>
+{% endif %}
+{% endmacro %}

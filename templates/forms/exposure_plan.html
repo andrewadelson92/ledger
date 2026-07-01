@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, datetime_input, form_actions %}
+{% from "macros/exposure.html" import exposure_plan_fields %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">Plan your exposure and rate SUDS before you begin. After completing the exposure, return home to record peak and after SUDS.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-6">
+
+  <div>
+    {{ field_label('Situation (hierarchy item)', true) }}
+    {{ text_input('situation', payload.situation or '', rows=3, required=true) }}
+  </div>
+
+  <div>
+    {{ field_label('Planned date & time') }}
+    {{ datetime_input('planned_datetime', payload.planned_datetime[:16] if payload.planned_datetime else '') }}
+  </div>
+
+  <section class="space-y-3">
+    <h2 class="text-sm font-medium text-zinc-800">Before the exposure (0–10)</h2>
+    {{ exposure_plan_fields(payload) }}
+  </section>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index'), 'Save plan' if not is_edit else 'Update plan') }}
+</form>
+{% endblock %}

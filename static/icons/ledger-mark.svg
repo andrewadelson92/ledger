@@ -1,0 +1,21 @@
+<svg width="1024" height="1024" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="ledger-bg" cx="32%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#2e2e2e"/>
+      <stop offset="100%" stop-color="#0d0d0d"/>
+    </radialGradient>
+    <linearGradient id="ledger-mark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bbf7d0"/>
+      <stop offset="38%" stop-color="#4ade80"/>
+      <stop offset="72%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#14532d"/>
+    </linearGradient>
+    <clipPath id="ledger-clip">
+      <rect width="160" height="160" rx="36"/>
+    </clipPath>
+  </defs>
+  <rect width="160" height="160" rx="36" fill="url(#ledger-bg)"/>
+  <g clip-path="url(#ledger-clip)">
+    <path d="M28 -20 h24 v96 h168 v24 h-192 v-120 z" fill="url(#ledger-mark)"/>
+  </g>
+</svg>

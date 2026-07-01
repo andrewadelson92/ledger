@@ -1,0 +1,57 @@
+{% from "macros/forms.html" import field_label, number_input %}
+
+{% macro ba_emotion_plan_card(row) %}
+<div class="rounded-lg border border-zinc-200 bg-white p-4 space-y-3">
+  <h3 class="text-sm font-medium text-zinc-900">{{ row.label }}</h3>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      {{ field_label('Current level', true) }}
+      {{ number_input(row.key ~ '_current', row.current if row.current is not none else '', 1, 10, true, row.label ~ ' current level') }}
+    </div>
+    <div>
+      {{ field_label('Predicted level', true) }}
+      {{ number_input(row.key ~ '_predicted', row.predicted if row.predicted is not none else '', 1, 10, true, row.label ~ ' predicted level') }}
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro ba_emotion_outcome_card(row, value='') %}
+<div class="rounded-lg border border-zinc-200 bg-white p-4 space-y-3">
+  <h3 class="text-sm font-medium text-zinc-900">{{ row.label }}</h3>
+  <div>
+    {{ field_label('New level', true) }}
+    {{ number_input(row.key ~ '_new', value if value is not none else '', 1, 10, true, row.label ~ ' new level') }}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro ba_emotion_reference_card(row) %}
+<div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-2 text-sm">
+  <h3 class="text-sm font-medium text-zinc-900">{{ row.label }}</h3>
+  <div class="grid gap-2 sm:grid-cols-2 text-zinc-700">
+    <p><span class="text-zinc-500">Current:</span> {{ row.current }}/10</p>
+    <p><span class="text-zinc-500">Predicted:</span> {{ row.predicted }}/10</p>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro ba_emotion_complete_card(row) %}
+<div class="rounded-lg border border-zinc-200 bg-white p-4 space-y-3">
+  <h3 class="text-sm font-medium text-zinc-900">{{ row.label }}</h3>
+  <div class="grid gap-4 sm:grid-cols-3 text-sm">
+    <div>
+      <p class="text-zinc-500 mb-1">Current</p>
+      <p class="font-medium text-zinc-900">{{ row.current }}/10</p>
+    </div>
+    <div>
+      <p class="text-zinc-500 mb-1">Predicted</p>
+      <p class="font-medium text-zinc-900">{{ row.predicted }}/10</p>
+    </div>
+    <div>
+      <p class="text-zinc-500 mb-1">New</p>
+      <p class="font-medium text-zinc-900">{{ row.new }}/10</p>
+    </div>
+  </div>
+</div>
+{% endmacro %}

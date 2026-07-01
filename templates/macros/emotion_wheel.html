@@ -1,0 +1,511 @@
+{% macro emotion_wheel_picker(wheel, hidden_input_name, initial_emotions=[], intensity_key='intensity', max_intensity=5, start_empty=false, add_label='Add emotion', mirror_from=none, show_picker_hint=true) %}
+<div class="emotion-picker"
+  data-hidden-name="{{ hidden_input_name }}"
+  data-intensity-key="{{ intensity_key }}"
+  data-max-intensity="{{ max_intensity }}"
+  data-storage-key="ledger_saved_emotions"
+  data-start-empty="{{ 'true' if start_empty else 'false' }}"
+  {% if mirror_from %}data-mirror-from="{{ mirror_from }}" data-intensity-only="true"{% endif %}>
+
+  {% if not start_empty and show_picker_hint and not mirror_from %}
+  <p class="text-sm text-zinc-600 mb-4">Add one emotion at a time. Search or filter the list, or enter your own.</p>
+  {% endif %}
+
+  <div class="emotion-rows space-y-4"></div>
+  {% if mirror_from %}
+  <p class="mirror-empty-hint text-sm text-zinc-500 italic hidden">Emotions you add above will appear here to re-rate.</p>
+  {% endif %}
+
+  <button type="button"
+    class="add-emotion-row mt-3 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-lg font-medium leading-none text-zinc-700 hover:bg-zinc-50{% if mirror_from %} hidden{% endif %}"
+    aria-label="{{ add_label }}"
+    title="{{ add_label }}">+</button>
+
+  <input type="hidden" name="{{ hidden_input_name }}" id="{{ hidden_input_name }}" value="">
+  <script type="application/json" class="emotion-wheel-data">{{ wheel|tojson }}</script>
+</div>
+
+<script>
+(function() {
+  const script = document.currentScript;
+  const container = script.previousElementSibling;
+  if (!container || !container.classList.contains('emotion-picker')) return;
+
+  const intensityKey = container.dataset.intensityKey;
+  const maxIntensity = parseInt(container.dataset.maxIntensity, 10) || 5;
+  const storageKey = container.dataset.storageKey || 'ledger_saved_emotions';
+  const startEmpty = container.dataset.startEmpty === 'true';
+  const mirrorFromId = container.dataset.mirrorFrom || '';
+  const intensityOnly = container.dataset.intensityOnly === 'true';
+  const hidden = container.querySelector('input[type="hidden"]');
+  const rowsWrap = container.querySelector('.emotion-rows');
+  const addBtn = container.querySelector('.add-emotion-row');
+  const mirrorEmptyHint = container.querySelector('.mirror-empty-hint');
+
+  let wheel = {};
+  try {
+    wheel = JSON.parse(container.querySelector('.emotion-wheel-data').textContent);
+  } catch (e) {}
+
+  let rows = [];
+  try {
+    const initial = {{ initial_emotions|tojson }};
+    initial.forEach(function(e) {
+      if (e.name) {
+        rows.push({
+          name: e.name,
+          intensity: e[intensityKey] || e.intensity || Math.min(3, maxIntensity),
+        });
+      }
+    });
+  } catch (e) {}
+
+  const savedAfterIntensities = {};
+  if (intensityOnly) {
+    rows.forEach(function(row) {
+      if (row.name) {
+        savedAfterIntensities[row.name.toLowerCase()] = row.intensity;
+      }
+    });
+    rows = [];
+  } else if (rows.length === 0 && !startEmpty) {
+    rows.push({ name: '', intensity: Math.min(3, maxIntensity) });
+  }
+
+  function loadSaved() {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveSaved(list) {
+    localStorage.setItem(storageKey, JSON.stringify(list));
+    window.dispatchEvent(new CustomEvent('ledger-saved-emotions-changed'));
+  }
+
+  function isBuiltinEmotion(name) {
+    const lower = (name || '').trim().toLowerCase();
+    if (!lower) return false;
+    return Object.keys(wheel).some(function(family) {
+      return (wheel[family] || []).some(function(item) {
+        return item.toLowerCase() === lower;
+      });
+    });
+  }
+
+  function forgetEmotion(name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    const saved = loadSaved().filter(function(s) {
+      return s.toLowerCase() !== trimmed.toLowerCase();
+    });
+    saveSaved(saved);
+    if (saved.length === 0) {
+      rows.forEach(function(row) {
+        if (row._category === 'Saved') row._category = 'All';
+      });
+    }
+  }
+
+  function rememberEmotion(name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed || isBuiltinEmotion(trimmed)) return;
+    const saved = loadSaved();
+    const exists = saved.some(function(s) { return s.toLowerCase() === trimmed.toLowerCase(); });
+    if (!exists) {
+      saved.push(trimmed);
+      saveSaved(saved);
+    }
+  }
+
+  function rememberCustomEmotionsFromRows() {
+    rows.forEach(function(row) {
+      rememberEmotion(row.name);
+    });
+  }
+
+  function getCatalog() {
+    const catalog = [];
+    loadSaved().forEach(function(name) {
+      catalog.push({ name: name, family: 'Saved', source: 'saved' });
+    });
+    Object.keys(wheel).forEach(function(family) {
+      (wheel[family] || []).forEach(function(name) {
+        catalog.push({ name: name, family: family, source: 'builtin' });
+      });
+    });
+    return catalog;
+  }
+
+  function usedNames(excludeIndex) {
+    return rows
+      .map(function(r, i) { return i === excludeIndex ? '' : (r.name || '').trim().toLowerCase(); })
+      .filter(Boolean);
+  }
+
+  function syncHidden() {
+    const arr = rows
+      .filter(function(r) { return (r.name || '').trim(); })
+      .map(function(r) {
+        const o = { name: r.name.trim() };
+        o[intensityKey] = r.intensity;
+        return o;
+      });
+    hidden.value = JSON.stringify(arr);
+    container.dispatchEvent(new CustomEvent('emotion-picker-change', { bubbles: true }));
+  }
+
+  function syncFromMirrorSource() {
+    if (!mirrorFromId) return;
+    const sourceHidden = document.getElementById(mirrorFromId);
+    if (!sourceHidden) return;
+    const sourceContainer = sourceHidden.closest('.emotion-picker');
+    const sourceIntensityKey = sourceContainer ? sourceContainer.dataset.intensityKey : 'intensity';
+
+    let sourceEmotions = [];
+    try {
+      sourceEmotions = JSON.parse(sourceHidden.value || '[]');
+    } catch (e) {}
+
+    const existingByName = {};
+    rows.forEach(function(row) {
+      if (row.name) existingByName[row.name.toLowerCase()] = row.intensity;
+    });
+
+    const nextRows = [];
+    sourceEmotions.forEach(function(sourceRow) {
+      const name = (sourceRow.name || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const sourceIntensity = sourceRow[sourceIntensityKey] || sourceRow.intensity;
+      const intensity = existingByName[key] !== undefined
+        ? existingByName[key]
+        : (savedAfterIntensities[key] !== undefined
+          ? savedAfterIntensities[key]
+          : (sourceIntensity || Math.min(3, maxIntensity)));
+      if (savedAfterIntensities[key] !== undefined) {
+        delete savedAfterIntensities[key];
+      }
+      nextRows.push({ name: name, intensity: intensity });
+    });
+
+    rows = nextRows;
+    renderRows();
+    syncHidden();
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+
+  function getFamilyOrder() {
+    return Object.keys(wheel).filter(function(family) {
+      return family !== 'Other';
+    });
+  }
+
+  function getCategoryOrder(hasSaved) {
+    const cats = ['All'];
+    if (hasSaved) cats.push('Saved');
+    cats.push.apply(cats, getFamilyOrder());
+    if (wheel.Other) cats.push('Other');
+    return cats;
+  }
+
+  function orderedGroupKeys(groups) {
+    const preferred = getCategoryOrder(true).filter(function(cat) {
+      return cat !== 'All';
+    });
+    const keys = Object.keys(groups);
+    return preferred.filter(function(k) { return keys.indexOf(k) !== -1; })
+      .concat(keys.filter(function(k) { return preferred.indexOf(k) === -1; }));
+  }
+
+  function renderCategorySelect(activeCategory, hasSaved) {
+    const cats = getCategoryOrder(hasSaved);
+    return '<select class="emotion-category-select w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500">' +
+      cats.map(function(cat) {
+        const selected = cat === activeCategory ? ' selected' : '';
+        return '<option value="' + escapeHtml(cat) + '"' + selected + '>' + escapeHtml(cat) + '</option>';
+      }).join('') +
+      '</select>';
+  }
+
+  function filterCatalog(query, category) {
+    const q = (query || '').trim().toLowerCase();
+    return getCatalog().filter(function(item) {
+      if (category && category !== 'All' && item.family !== category) return false;
+      if (!q) return true;
+      return item.name.toLowerCase().indexOf(q) !== -1 || item.family.toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  function groupFiltered(items) {
+    const groups = {};
+    items.forEach(function(item) {
+      if (!groups[item.family]) groups[item.family] = [];
+      groups[item.family].push(item);
+    });
+    return groups;
+  }
+
+  function renderPickerList(rowIndex, query, category) {
+    const items = filterCatalog(query, category);
+    if (items.length === 0) {
+      return '<p class="text-sm text-zinc-500 px-3 py-2">No emotions match.</p>';
+    }
+    const groups = groupFiltered(items);
+    let html = '';
+    orderedGroupKeys(groups).forEach(function(family) {
+      html += '<div class="mb-3">';
+      html += '<p class="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 bg-zinc-50 border-y border-zinc-100">' + escapeHtml(family) + '</p>';
+      html += '<ul class="divide-y divide-zinc-100 border-x border-b border-zinc-200 rounded-b-md">';
+      groups[family].forEach(function(item) {
+        const taken = usedNames(rowIndex).indexOf(item.name.toLowerCase()) !== -1;
+        if (item.source === 'saved') {
+          html += '<li class="flex items-center gap-2 ' + (taken ? 'bg-zinc-50' : 'hover:bg-zinc-50') + '">' +
+            '<button type="button" data-emotion="' + escapeHtml(item.name) + '" ' +
+            (taken ? 'disabled ' : '') +
+            'class="emotion-option flex-1 text-left px-3 py-2 text-sm ' +
+            (taken ? 'text-zinc-400 cursor-not-allowed' : 'text-zinc-800 hover:text-zinc-900') +
+            '">' + escapeHtml(item.name) + '</button>' +
+            '<button type="button" data-remove-saved="' + escapeHtml(item.name) + '" ' +
+            'class="remove-saved-emotion shrink-0 px-3 py-2 text-sm text-zinc-400 hover:text-zinc-900" aria-label="Remove ' + escapeHtml(item.name) + ' from saved">&times;</button>' +
+            '</li>';
+        } else {
+          html += '<li class="' + (taken ? 'bg-zinc-50' : 'hover:bg-zinc-50') + '">' +
+            '<button type="button" data-emotion="' + escapeHtml(item.name) + '" ' +
+            (taken ? 'disabled ' : '') +
+            'class="emotion-option w-full text-left px-3 py-2 text-sm ' +
+            (taken ? 'text-zinc-400 cursor-not-allowed' : 'text-zinc-800 hover:text-zinc-900') +
+            '">' + escapeHtml(item.name) + '</button></li>';
+        }
+      });
+      html += '</ul></div>';
+    });
+    return html;
+  }
+
+  function renderMirroredRows() {
+    rowsWrap.innerHTML = '';
+    if (mirrorEmptyHint) {
+      mirrorEmptyHint.classList.toggle('hidden', rows.length > 0);
+    }
+
+    rows.forEach(function(row, index) {
+      const el = document.createElement('div');
+      el.className = 'emotion-row rounded-lg border border-zinc-200 bg-white p-4 space-y-3';
+      el.dataset.index = index;
+
+      el.innerHTML =
+        '<p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">' + escapeHtml(row.name) + '</p>' +
+        '<div class="flex items-center gap-3 emotion-intensity-row">' +
+          '<span class="text-sm text-zinc-700 shrink-0">Intensity</span>' +
+          '<input type="range" min="1" max="' + maxIntensity + '" value="' + row.intensity + '" class="emotion-intensity flex-1 accent-zinc-900" aria-label="Intensity for ' + escapeHtml(row.name) + '">' +
+          '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + row.intensity + '</span>' +
+        '</div>';
+
+      const slider = el.querySelector('.emotion-intensity');
+      const val = el.querySelector('.intensity-val');
+      slider.addEventListener('input', function() {
+        row.intensity = parseInt(slider.value, 10);
+        val.textContent = slider.value;
+        syncHidden();
+      });
+
+      rowsWrap.appendChild(el);
+    });
+  }
+
+  function renderRows() {
+    if (intensityOnly) {
+      renderMirroredRows();
+      return;
+    }
+
+    const saved = loadSaved();
+    rowsWrap.innerHTML = '';
+
+    rows.forEach(function(row, index) {
+      const el = document.createElement('div');
+      el.className = 'emotion-row rounded-lg border border-zinc-200 bg-white p-4 space-y-3';
+      el.dataset.index = index;
+
+      const hasName = !!(row.name || '').trim();
+      const showRemove = rows.length > 1 || startEmpty;
+
+      el.innerHTML =
+        '<div class="flex items-center justify-between gap-3">' +
+          '<p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">' +
+            (hasName ? escapeHtml(row.name) : 'Choose an emotion') +
+          '</p>' +
+          (showRemove
+            ? '<button type="button" class="remove-emotion-row text-xs text-zinc-500 hover:text-zinc-900">Remove</button>'
+            : '') +
+        '</div>' +
+        (hasName
+          ? '<div class="flex items-center gap-3">' +
+              '<button type="button" class="change-emotion text-xs text-zinc-600 hover:text-zinc-900 underline">Change</button>' +
+            '</div>'
+          : '') +
+        '<div class="emotion-picker-panel' + (hasName ? ' hidden' : '') + ' space-y-3">' +
+          '<input type="search" class="emotion-search w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500" placeholder="Search emotions…" value="' + escapeHtml(row._query || '') + '">' +
+          '<div class="emotion-categories">' + renderCategorySelect(row._category || 'All', saved.length > 0) + '</div>' +
+          '<div class="emotion-list max-h-56 overflow-y-auto">' + renderPickerList(index, row._query || '', row._category || 'All') + '</div>' +
+          '<div class="border-t border-zinc-100 pt-3 space-y-2">' +
+            '<button type="button" class="toggle-other text-sm font-medium text-zinc-700 hover:text-zinc-900">' +
+              (row._showOther ? 'Hide custom emotion' : 'Other — type your own') +
+            '</button>' +
+            '<div class="other-emotion-panel' + (row._showOther ? '' : ' hidden') + ' space-y-2">' +
+              '<input type="text" class="other-emotion-input w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500" placeholder="Your emotion" value="' + escapeHtml(row._otherText || '') + '">' +
+              '<p class="text-xs text-zinc-500">Custom emotions are saved for all entries.</p>' +
+              '<button type="button" class="use-other-emotion rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800">Use this emotion</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-3' + (hasName ? '' : ' hidden') + ' emotion-intensity-row">' +
+          '<span class="text-sm text-zinc-700 shrink-0">Intensity</span>' +
+          '<input type="range" min="1" max="' + maxIntensity + '" value="' + row.intensity + '" class="emotion-intensity flex-1 accent-zinc-900" aria-label="Intensity for ' + escapeHtml(row.name || 'emotion') + '">' +
+          '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + row.intensity + '</span>' +
+        '</div>';
+
+      const search = el.querySelector('.emotion-search');
+      const list = el.querySelector('.emotion-list');
+      const categorySelect = el.querySelector('.emotion-category-select');
+
+      function wireListEvents() {
+        list.querySelectorAll('.emotion-option').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            selectEmotion(index, btn.dataset.emotion);
+          });
+        });
+        list.querySelectorAll('.remove-saved-emotion').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            forgetEmotion(btn.dataset.removeSaved);
+            renderRows();
+          });
+        });
+      }
+
+      function refreshList() {
+        list.innerHTML = renderPickerList(index, row._query || '', row._category || 'All');
+        wireListEvents();
+      }
+
+      search.addEventListener('input', function() {
+        row._query = search.value;
+        refreshList();
+      });
+
+      categorySelect.addEventListener('change', function() {
+        row._category = categorySelect.value;
+        refreshList();
+      });
+
+      wireListEvents();
+
+      el.querySelector('.toggle-other')?.addEventListener('click', function() {
+        row._showOther = !row._showOther;
+        renderRows();
+      });
+
+      el.querySelector('.use-other-emotion')?.addEventListener('click', function() {
+        const input = el.querySelector('.other-emotion-input');
+        const custom = (input.value || '').trim();
+        if (!custom) return;
+        rememberEmotion(custom);
+        selectEmotion(index, custom);
+      });
+
+      el.querySelector('.other-emotion-input')?.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          el.querySelector('.use-other-emotion')?.click();
+        }
+      });
+
+      el.querySelector('.change-emotion')?.addEventListener('click', function() {
+        row.name = '';
+        renderRows();
+      });
+
+      el.querySelector('.remove-emotion-row')?.addEventListener('click', function() {
+        rows.splice(index, 1);
+        renderRows();
+        syncHidden();
+      });
+
+      const slider = el.querySelector('.emotion-intensity');
+      const val = el.querySelector('.intensity-val');
+      if (slider) {
+        slider.addEventListener('input', function() {
+          row.intensity = parseInt(slider.value, 10);
+          val.textContent = slider.value;
+          syncHidden();
+        });
+      }
+
+      rowsWrap.appendChild(el);
+    });
+  }
+
+  function selectEmotion(index, name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    const taken = usedNames(index);
+    if (taken.indexOf(trimmed.toLowerCase()) !== -1) return;
+    rows[index].name = trimmed;
+    rows[index]._showOther = false;
+    rows[index]._otherText = '';
+    if (!rows[index].intensity) rows[index].intensity = Math.min(3, maxIntensity);
+    renderRows();
+    syncHidden();
+  }
+
+  if (addBtn) {
+    addBtn.addEventListener('click', function() {
+      rows.push({ name: '', intensity: Math.min(3, maxIntensity), _picking: true });
+      renderRows();
+    });
+  }
+
+  if (mirrorFromId) {
+    const sourceHidden = document.getElementById(mirrorFromId);
+    const sourceContainer = sourceHidden ? sourceHidden.closest('.emotion-picker') : null;
+    if (sourceContainer) {
+      sourceContainer.addEventListener('emotion-picker-change', syncFromMirrorSource);
+    }
+    syncFromMirrorSource();
+  } else {
+    renderRows();
+    syncHidden();
+  }
+
+  if (!intensityOnly) {
+    window.addEventListener('ledger-saved-emotions-changed', function() {
+      renderRows();
+    });
+    window.addEventListener('storage', function(e) {
+      if (e.key === storageKey) renderRows();
+    });
+  }
+
+  const form = container.closest('form');
+  if (form) {
+    form.addEventListener('submit', function() {
+      if (!intensityOnly) rememberCustomEmotionsFromRows();
+      if (mirrorFromId) syncFromMirrorSource();
+      syncHidden();
+    });
+  }
+})();
+</script>
+{% endmacro %}

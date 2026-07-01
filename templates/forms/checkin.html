@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, form_actions %}
+{% from "macros/emotion_wheel.html" import emotion_wheel_picker %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-6">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-6">
+
+  {{ emotion_wheel_picker(emotion_wheel, 'emotions_json', payload.emotions or [], 'intensity', 5) }}
+
+  <div>
+    {{ field_label('What happened? (triggering event)') }}
+    {{ text_input('description', payload.description or '', rows=4) }}
+  </div>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+</form>
+{% endblock %}

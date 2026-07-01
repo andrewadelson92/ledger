@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, number_input, form_actions %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-6">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-6">
+
+  {% if exposure_plans %}
+  <div>
+    {{ field_label('Link to exposure plan (optional)') }}
+    <select name="linked_entry_id" class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
+      <option value="">None</option>
+      {% for plan in exposure_plans %}
+      <option value="{{ plan.id }}"
+        {% if linked_entry_id == plan.id %}selected{% endif %}>
+        {{ plan.payload.situation if plan.payload else 'Plan #' ~ plan.id }}
+        {% if plan.payload and plan.payload.predicted_suds is not none %}(SUDS {{ plan.payload.predicted_suds }}){% endif %}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  <div class="grid gap-4 sm:grid-cols-3">
+    <div>
+      {{ field_label('SUDS before (0–10)', true) }}
+      {{ number_input('suds_before', payload.suds_before if payload.suds_before is not none else '', 0, 10, true) }}
+    </div>
+    <div>
+      {{ field_label('SUDS peak (0–10)', true) }}
+      {{ number_input('suds_peak', payload.suds_peak if payload.suds_peak is not none else '', 0, 10, true) }}
+    </div>
+    <div>
+      {{ field_label('SUDS after (0–10)', true) }}
+      {{ number_input('suds_after', payload.suds_after if payload.suds_after is not none else '', 0, 10, true) }}
+    </div>
+  </div>
+
+  <div>
+    {{ field_label('Avoidance or safety behaviors') }}
+    {{ text_input('avoidance_or_safety_behaviors', payload.avoidance_or_safety_behaviors or '', rows=3) }}
+  </div>
+
+  <div>
+    {{ field_label('Notes') }}
+    {{ text_input('notes', payload.notes or '', rows=3) }}
+  </div>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+</form>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, form_actions %}
+{% from "macros/emotion_wheel.html" import emotion_wheel_picker %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-6">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-6">
+
+  <div>
+    {{ field_label('Situation', true) }}
+    {{ text_input('situation', payload.situation or '', rows=3, required=true) }}
+  </div>
+
+  <div>
+    {{ field_label('Automatic thought', true) }}
+    {{ text_input('automatic_thought', payload.automatic_thought or '', rows=3, required=true) }}
+  </div>
+
+  <div>
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotions before (1–10)</h2>
+    <p class="text-sm text-zinc-600 mb-3">Add each emotion you notice. The same emotions carry through for re-rating after reframing.</p>
+    {{ emotion_wheel_picker(emotion_wheel, 'emotions_before_json', payload.emotions or [], 'intensity_before', 10, show_picker_hint=false) }}
+  </div>
+
+  <div>
+    {{ field_label('Evidence for the thought') }}
+    {{ text_input('evidence_for', payload.evidence_for or '', rows=3) }}
+  </div>
+
+  <div>
+    {{ field_label('Evidence against the thought') }}
+    {{ text_input('evidence_against', payload.evidence_against or '', rows=3) }}
+  </div>
+
+  <div>
+    {{ field_label('Alternative / balanced thought') }}
+    {{ text_input('alternative_thought', payload.alternative_thought or '', rows=3) }}
+  </div>
+
+  <div>
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotions after (1–10)</h2>
+    <p class="text-sm text-zinc-600 mb-3">Re-rate the same emotions after your balanced thought.</p>
+    {{ emotion_wheel_picker(emotion_wheel, 'emotions_after_json', payload.emotions_after or [], 'intensity_after', 10, mirror_from='emotions_before_json', show_picker_hint=false) }}
+  </div>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+</form>
+{% endblock %}

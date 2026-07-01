@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, datetime_input, form_actions %}
+{% from "macros/behavioral_activation.html" import ba_emotion_plan_card %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">Plan your activity and rate joy and sadness before you begin. After completing the activity, return home to record your new levels.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-6">
+
+  <div>
+    {{ field_label('Activity', true) }}
+    {{ text_input('activity', payload.activity or '', required=true) }}
+  </div>
+
+  <div>
+    {{ field_label('Planned date & time', true) }}
+    {{ datetime_input('planned_datetime', payload.planned_datetime[:16] if payload.planned_datetime else '') }}
+  </div>
+
+  <section class="space-y-4">
+    <h2 class="text-sm font-medium text-zinc-800">Emotions before the activity (1–10)</h2>
+    {% for row in behavioral_activation_emotion_rows(payload) %}
+    {{ ba_emotion_plan_card(row) }}
+    {% endfor %}
+  </section>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index'), 'Save plan' if not is_edit else 'Update plan') }}
+</form>
+{% endblock %}

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+virtenv/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Migration cache
+migrations/versions/__pycache__/
+
+# macOS
+.DS_Store
+
+# SQLite databases
+ledger.db
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/

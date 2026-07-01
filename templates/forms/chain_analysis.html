@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, form_actions %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">Work through each section at your own pace. All sections are optional but more detail helps.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-3" id="chain-form">
+
+  <details class="rounded-lg border border-zinc-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-800 [&::-webkit-details-marker]:hidden">
+      1. Problem behavior
+    </summary>
+    <div class="border-t border-zinc-100 px-4 py-3">
+      {{ text_input('problem_behavior', payload.problem_behavior or '', rows=3) }}
+    </div>
+  </details>
+
+  <details class="rounded-lg border border-zinc-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-800 [&::-webkit-details-marker]:hidden">
+      2. Vulnerability factors
+    </summary>
+    <div class="border-t border-zinc-100 px-4 py-3">
+      {{ text_input('vulnerability_factors', payload.vulnerability_factors or '', rows=3, placeholder='Sleep, hunger, stress, illness…') }}
+    </div>
+  </details>
+
+  <details class="rounded-lg border border-zinc-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-800 [&::-webkit-details-marker]:hidden">
+      3. Prompting event
+    </summary>
+    <div class="border-t border-zinc-100 px-4 py-3">
+      {{ text_input('prompting_event', payload.prompting_event or '', rows=3) }}
+    </div>
+  </details>
+
+  <details class="rounded-lg border border-zinc-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-800 [&::-webkit-details-marker]:hidden">
+      4. Chain links
+    </summary>
+    <div class="border-t border-zinc-100 px-4 py-3 space-y-4" id="chain-links-container">
+      <p class="text-xs text-zinc-500">Add steps in order — choose a type and describe each link.</p>
+    </div>
+    <div class="px-4 pb-3">
+      <button type="button" id="add-chain-link"
+        class="text-sm font-medium text-zinc-700 hover:text-zinc-900">+ Add link</button>
+    </div>
+  </details>
+
+  <details class="rounded-lg border border-zinc-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-800 [&::-webkit-details-marker]:hidden">
+      5. Consequences
+    </summary>
+    <div class="border-t border-zinc-100 px-4 py-3 space-y-4">
+      <div>
+        {{ field_label('Short-term') }}
+        {{ text_input('consequences_short_term', payload.consequences_short_term or '', rows=2) }}
+      </div>
+      <div>
+        {{ field_label('Long-term') }}
+        {{ text_input('consequences_long_term', payload.consequences_long_term or '', rows=2) }}
+      </div>
+    </div>
+  </details>
+
+  <details class="rounded-lg border border-zinc-200 bg-white">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-800 [&::-webkit-details-marker]:hidden">
+      6. Prevention plan
+    </summary>
+    <div class="border-t border-zinc-100 px-4 py-3">
+      {{ text_input('prevention_plan', payload.prevention_plan or '', rows=3) }}
+    </div>
+  </details>
+
+  <div class="pt-2">
+    {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+  </div>
+</form>
+
+<script type="application/json" id="chain-links-data">{{ (payload.chain_links or [])|tojson }}</script>
+<script>
+(function() {
+  const container = document.getElementById('chain-links-container');
+  const addBtn = document.getElementById('add-chain-link');
+  const typeOptions = [
+    { value: 'thought', label: 'Thought' },
+    { value: 'feeling', label: 'Feeling' },
+    { value: 'body_sensation', label: 'Body sensation' },
+    { value: 'action', label: 'Action' },
+  ];
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+
+  function normalizeLinks(links) {
+    const rows = [];
+    (links || []).forEach(function(link) {
+      if (link.type && link.text) {
+        rows.push({ type: link.type, text: link.text });
+        return;
+      }
+      [
+        ['thought', link.thought],
+        ['feeling', link.feeling],
+        ['body_sensation', link.body_sensation],
+        ['action', link.action],
+      ].forEach(function(pair) {
+        if (pair[1]) rows.push({ type: pair[0], text: pair[1] });
+      });
+    });
+    return rows;
+  }
+
+  function renderLink(idx, data) {
+    data = data || { type: 'thought', text: '' };
+    const wrap = document.createElement('div');
+    wrap.className = 'chain-link-row rounded-md border border-zinc-200 p-3 space-y-2';
+    wrap.dataset.idx = idx;
+
+    const optionsHtml = typeOptions.map(function(opt) {
+      const selected = opt.value === data.type ? ' selected' : '';
+      return '<option value="' + opt.value + '"' + selected + '>' + opt.label + '</option>';
+    }).join('');
+
+    wrap.innerHTML =
+      '<div class="flex items-center justify-between">' +
+        '<span class="text-xs font-semibold uppercase text-zinc-500">Link ' + (idx + 1) + '</span>' +
+        '<button type="button" class="remove-link text-xs text-zinc-500 hover:text-zinc-900">Remove</button>' +
+      '</div>' +
+      '<div class="flex gap-2">' +
+        '<select name="chain_type_' + idx + '" class="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500">' +
+          optionsHtml +
+        '</select>' +
+        '<input name="chain_text_' + idx + '" value="' + escapeHtml(data.text) + '" placeholder="Describe this link" class="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500">' +
+      '</div>';
+
+    wrap.querySelector('.remove-link').addEventListener('click', function() {
+      wrap.remove();
+      reindex();
+    });
+    container.appendChild(wrap);
+  }
+
+  function reindex() {
+    const rows = container.querySelectorAll('.chain-link-row');
+    rows.forEach(function(row, i) {
+      row.dataset.idx = i;
+      row.querySelector('span').textContent = 'Link ' + (i + 1);
+      row.querySelector('select').name = 'chain_type_' + i;
+      row.querySelector('input').name = 'chain_text_' + i;
+    });
+  }
+
+  let links = [];
+  try {
+    links = normalizeLinks(JSON.parse(document.getElementById('chain-links-data').textContent) || []);
+  } catch (e) {}
+
+  if (links.length === 0) links = [{ type: 'thought', text: '' }];
+  links.forEach(function(link, i) { renderLink(i, link); });
+
+  addBtn.addEventListener('click', function() {
+    const idx = container.querySelectorAll('.chain-link-row').length;
+    renderLink(idx, { type: 'thought', text: '' });
+  });
+})();
+</script>
+{% endblock %}
