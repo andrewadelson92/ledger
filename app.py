@@ -42,6 +42,7 @@ from helpers import (
     linked_journal_for,
     sync_diary_card_journal,
     parse_journal_fields,
+    find_todays_daily_goal,
 )
 
 ADD_HIDDEN_TYPES = frozenset({"exposure_checkin"})
@@ -150,9 +151,9 @@ with app.app_context():
 
 @app.route("/")
 def index():
-    tab = request.args.get("tab", "add").strip().lower()
-    if tab not in ("log", "add"):
-        tab = "add"
+    tab = request.args.get("tab", "today").strip().lower()
+    if tab not in ("today", "log", "add"):
+        tab = "today"
 
     entries = Entry.query.order_by(Entry.created_at.desc()).all()
     cards = [
@@ -182,12 +183,15 @@ def index():
         for t in ENTRY_TYPES
         if t not in ADD_HIDDEN_TYPES
     ]
+    today_label = datetime.now(LOCAL_TZ).strftime("%A, %b %d")
     return render_template(
         "index.html",
         cards=cards,
         tab=tab,
         add_options=add_options,
         in_progress_items=in_progress_items,
+        todays_daily_goal=_todays_daily_goal(),
+        today_label=today_label,
     )
 
 
@@ -204,6 +208,28 @@ def _touch_entry(entry: Entry) -> None:
 
 def _exposure_plans():
     return Entry.query.filter_by(type="exposure_plan").order_by(Entry.created_at.desc()).all()
+
+
+def _todays_daily_goal():
+    candidates = (
+        Entry.query.filter_by(type="daily_goal")
+        .order_by(Entry.created_at.desc())
+        .all()
+    )
+    return find_todays_daily_goal(candidates, LOCAL_TZ)
+
+
+def _save_daily_goal(payload: dict) -> Entry:
+    existing = _todays_daily_goal()
+    if existing:
+        existing.payload = payload
+        _touch_entry(existing)
+        db.session.commit()
+        return existing
+    entry = Entry(type="daily_goal", payload=payload)
+    db.session.add(entry)
+    db.session.commit()
+    return entry
 
 
 def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=None, **extra):
@@ -274,7 +300,7 @@ def new_entry(entry_type):
                 db.session.add(entry)
                 db.session.commit()
                 flash("Behavioral activation in progress.")
-                return redirect(url_for("index", tab="add"))
+                return redirect(url_for("index", tab="today"))
             return render_template(
                 f"forms/{entry_type}.html",
                 **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
@@ -294,7 +320,7 @@ def new_entry(entry_type):
                 db.session.add(entry)
                 db.session.commit()
                 flash("Exposure in progress.")
-                return redirect(url_for("index", tab="add"))
+                return redirect(url_for("index", tab="today"))
             return render_template(
                 f"forms/{entry_type}.html",
                 **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
@@ -312,6 +338,9 @@ def new_entry(entry_type):
                     f"forms/{entry_type}.html",
                     **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
                 )
+            _save_daily_goal(payload)
+            flash("Daily goal saved.")
+            return redirect(url_for("index", tab="today"))
         entry = Entry(
             type=entry_type,
             payload=payload,
@@ -321,6 +350,11 @@ def new_entry(entry_type):
         _save_entry(entry, entry_type)
         flash(f"{type_label(entry_type)} saved.")
         return redirect(url_for("entry_detail", entry_id=entry.id))
+
+    if entry_type == "daily_goal":
+        existing = _todays_daily_goal()
+        if existing:
+            return redirect(url_for("entry_edit", entry_id=existing.id))
 
     return render_template(
         f"forms/{entry_type}.html",
@@ -397,7 +431,7 @@ def entry_delete(entry_id):
     db.session.delete(entry)
     db.session.commit()
     flash(f"{kind} deleted.")
-    return redirect(url_for("index", tab="add"))
+    return redirect(url_for("index", tab="today"))
 
 
 @app.route("/entry/<int:entry_id>/edit", methods=["GET", "POST"])
@@ -528,6 +562,8 @@ def entry_edit(entry_id):
             sync_diary_card_journal(entry, request.form)
         db.session.commit()
         flash("Entry updated.")
+        if entry.type == "daily_goal":
+            return redirect(url_for("index", tab="today"))
         return redirect(url_for("entry_detail", entry_id=entry.id))
 
     return render_template(

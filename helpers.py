@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from constants import (
     ENTRY_TYPE_LABELS,
@@ -15,6 +16,23 @@ from constants import (
 
 def type_label(entry_type: str) -> str:
     return ENTRY_TYPE_LABELS.get(entry_type, entry_type.replace("_", " ").title())
+
+
+def entry_local_date(dt: datetime, tz: ZoneInfo) -> datetime.date:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+    return dt.astimezone(tz).date()
+
+
+def find_todays_daily_goal(entries, tz: ZoneInfo, today=None):
+    """Return the most recent daily_goal entry for the local calendar day, if any."""
+    today = today or datetime.now(tz).date()
+    for entry in entries:
+        if entry.type != "daily_goal":
+            continue
+        if entry_local_date(entry.created_at, tz) == today:
+            return entry
+    return None
 
 
 def entry_log_label(entry) -> str:

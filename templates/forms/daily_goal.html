@@ -21,7 +21,7 @@
     {{ skills_list_picker(payload.skills|default([], true), 1) }}
   </section>
 
-  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index', tab='today')) }}
 </form>
 
 {{ skills_picker_scripts(module_skills, skill_module_labels) }}
