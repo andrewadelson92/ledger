@@ -1,7 +1,54 @@
 {% from "macros/forms.html" import field_label %}
 
-{% macro skill_picker(module='', skill='', required=true, module_labels=none) %}
-<div class="skill-picker skill-picker-single space-y-6" data-required="{{ 'true' if required else 'false' }}">
+{% macro skill_picker(module='', skill='', required=true, module_labels=none, searchable=false) %}
+<div class="skill-picker skill-picker-single space-y-6" data-required="{{ 'true' if required else 'false' }}" data-searchable="{{ 'true' if searchable else 'false' }}">
+  {% if searchable %}
+  <div>
+    {{ field_label('Skill', required) }}
+    <div class="skill-search-panel space-y-3">
+      <input type="search"
+        class="skill-search w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+        placeholder="Search all skills…"
+        aria-label="Search skills">
+      <div class="skill-results max-h-56 overflow-y-auto rounded-md border border-zinc-200 bg-white"></div>
+      <div class="skill-other border-t border-zinc-100 pt-3">
+        <button type="button"
+          class="toggle-skill-other text-sm font-medium text-zinc-700 hover:text-zinc-900">
+          Other — type your own
+        </button>
+        <div class="skill-other-panel hidden mt-3 space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-zinc-800 mb-1">Module{% if required %}<span class="text-zinc-500">*</span>{% endif %}</label>
+            <select class="skill-other-module w-full rounded-md border border-zinc-300 px-3 py-2 text-sm">
+              <option value="">Select module…</option>
+              {% for m in ['DT', 'ER', 'IE', 'M'] %}
+              <option value="{{ m }}">{{ (module_labels or {}).get(m, m) }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <input type="text"
+            class="skill-custom w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            placeholder="Type your skill…"
+            aria-label="Custom skill">
+        </div>
+      </div>
+    </div>
+    <div class="skill-chosen hidden rounded-md border border-zinc-200 bg-zinc-100 px-3 py-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-xs font-medium uppercase tracking-wide text-zinc-500 skill-chosen-module"></p>
+          <p class="text-sm font-medium text-zinc-900 skill-chosen-name"></p>
+        </div>
+        <button type="button"
+          class="change-skill shrink-0 text-sm text-zinc-600 hover:text-zinc-900">
+          Change
+        </button>
+      </div>
+    </div>
+    <input type="hidden" name="module" class="skill-module" value="{{ module }}">
+    <input type="hidden" name="skill" class="skill-value" value="{{ skill }}">
+  </div>
+  {% else %}
   <div>
     {{ field_label('Module', required) }}
     <select name="module" class="skill-module w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"{% if required %} required{% endif %}>
@@ -23,6 +70,7 @@
       aria-label="Custom skill">
     <input type="hidden" name="skill" class="skill-value" value="{{ skill }}">
   </div>
+  {% endif %}
 </div>
 {% endmacro %}
 
@@ -112,6 +160,194 @@
       result.push(item.skill);
     });
     return result;
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+
+  function getAllSkillsCatalog() {
+    const catalog = [];
+    const seen = {};
+
+    loadSaved().forEach(function(item) {
+      const key = item.module + '|' + item.skill.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+      catalog.push({
+        module: item.module,
+        skill: item.skill,
+        source: 'saved',
+        moduleLabel: moduleLabels[item.module] || item.module,
+      });
+    });
+
+    ['DT', 'ER', 'IE', 'M'].forEach(function(mod) {
+      (skillsByModule[mod] || []).forEach(function(skill) {
+        const key = mod + '|' + skill.toLowerCase();
+        if (seen[key]) return;
+        seen[key] = true;
+        catalog.push({
+          module: mod,
+          skill: skill,
+          source: 'builtin',
+          moduleLabel: moduleLabels[mod] || mod,
+        });
+      });
+    });
+
+    return catalog;
+  }
+
+  function filterSkillCatalog(query) {
+    const q = (query || '').trim().toLowerCase();
+    return getAllSkillsCatalog().filter(function(item) {
+      if (!q) return true;
+      return item.skill.toLowerCase().indexOf(q) !== -1
+        || item.moduleLabel.toLowerCase().indexOf(q) !== -1
+        || item.module.toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  function renderSkillResults(container, query, onSelect) {
+    const items = filterSkillCatalog(query);
+    if (items.length === 0) {
+      container.innerHTML = '<p class="px-3 py-2 text-sm text-zinc-500">No skills match.</p>';
+      return;
+    }
+
+    const groups = {};
+    items.forEach(function(item) {
+      const groupKey = item.source === 'saved' ? 'Saved' : item.moduleLabel;
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(item);
+    });
+
+    const order = ['Saved'];
+    ['DT', 'ER', 'IE', 'M'].forEach(function(mod) {
+      const label = moduleLabels[mod] || mod;
+      if (groups[label]) order.push(label);
+    });
+    Object.keys(groups).forEach(function(key) {
+      if (order.indexOf(key) === -1) order.push(key);
+    });
+
+    let html = '';
+    order.forEach(function(groupKey) {
+      const groupItems = groups[groupKey];
+      if (!groupItems || !groupItems.length) return;
+      html += '<div class="border-b border-zinc-100 last:border-b-0">';
+      html += '<p class="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 bg-zinc-50">' + escapeHtml(groupKey) + '</p>';
+      html += '<ul class="divide-y divide-zinc-100">';
+      groupItems.forEach(function(item) {
+        html += '<li><button type="button" class="skill-result-option w-full text-left px-3 py-2 text-sm text-zinc-800 hover:bg-zinc-50" data-module="' + escapeHtml(item.module) + '" data-skill="' + escapeHtml(item.skill) + '">' + escapeHtml(item.skill) + '</button></li>';
+      });
+      html += '</ul></div>';
+    });
+    container.innerHTML = html;
+
+    container.querySelectorAll('.skill-result-option').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        onSelect(btn.dataset.module, btn.dataset.skill);
+      });
+    });
+  }
+
+  function syncIeWrap(moduleValue, ieWrap) {
+    if (ieWrap) {
+      ieWrap.classList.toggle('hidden', moduleValue !== 'IE');
+    }
+  }
+
+  function bindSearchableSkillPicker(picker, options) {
+    const moduleInput = picker.querySelector('.skill-module');
+    const valueInput = picker.querySelector('.skill-value');
+    const searchPanel = picker.querySelector('.skill-search-panel');
+    const chosenPanel = picker.querySelector('.skill-chosen');
+    const searchInput = picker.querySelector('.skill-search');
+    const results = picker.querySelector('.skill-results');
+    const otherToggle = picker.querySelector('.toggle-skill-other');
+    const otherPanel = picker.querySelector('.skill-other-panel');
+    const otherModule = picker.querySelector('.skill-other-module');
+    const customInput = picker.querySelector('.skill-custom');
+    const chosenModule = picker.querySelector('.skill-chosen-module');
+    const chosenName = picker.querySelector('.skill-chosen-name');
+    const changeBtn = picker.querySelector('.change-skill');
+    const ieWrap = options && options.ieWrap;
+    let usingCustom = false;
+
+    function showChosen(moduleValue, skillValue) {
+      moduleInput.value = moduleValue;
+      valueInput.value = skillValue;
+      chosenModule.textContent = moduleLabels[moduleValue] || moduleValue;
+      chosenName.textContent = skillValue;
+      searchPanel.classList.add('hidden');
+      chosenPanel.classList.remove('hidden');
+      otherPanel.classList.add('hidden');
+      usingCustom = false;
+      syncIeWrap(moduleValue, ieWrap);
+    }
+
+    function showPicker() {
+      searchPanel.classList.remove('hidden');
+      chosenPanel.classList.add('hidden');
+      moduleInput.value = '';
+      valueInput.value = '';
+      searchInput.value = '';
+      customInput.value = '';
+      otherModule.value = '';
+      otherPanel.classList.add('hidden');
+      usingCustom = false;
+      syncIeWrap('', ieWrap);
+      renderSkillResults(results, '', function(mod, skill) {
+        showChosen(mod, skill);
+      });
+      searchInput.focus();
+    }
+
+    function syncCustomValue() {
+      const mod = (otherModule.value || '').trim();
+      const skill = (customInput.value || '').trim();
+      moduleInput.value = mod;
+      valueInput.value = skill;
+      syncIeWrap(mod, ieWrap);
+    }
+
+    searchInput.addEventListener('input', function() {
+      renderSkillResults(results, searchInput.value, function(mod, skill) {
+        showChosen(mod, skill);
+      });
+    });
+
+    otherToggle.addEventListener('click', function() {
+      const willShow = otherPanel.classList.contains('hidden');
+      otherPanel.classList.toggle('hidden', !willShow);
+      otherToggle.textContent = willShow ? 'Hide custom skill' : 'Other — type your own';
+      if (willShow) {
+        usingCustom = true;
+        chosenPanel.classList.add('hidden');
+        moduleInput.value = '';
+        valueInput.value = '';
+        syncIeWrap(otherModule.value, ieWrap);
+        customInput.focus();
+      }
+    });
+
+    otherModule.addEventListener('change', syncCustomValue);
+    customInput.addEventListener('input', syncCustomValue);
+
+    changeBtn.addEventListener('click', showPicker);
+
+    if (moduleInput.value && valueInput.value) {
+      showChosen(moduleInput.value, valueInput.value);
+    } else {
+      renderSkillResults(results, '', function(mod, skill) {
+        showChosen(mod, skill);
+      });
+    }
   }
 
   function populateSkillSelect(moduleSelect, skillSelect, currentSkill) {
@@ -225,6 +461,19 @@
   }
 
   document.querySelectorAll('.skill-picker-single').forEach(function(picker) {
+    if (picker.dataset.searchable === 'true') {
+      bindSearchableSkillPicker(picker, {
+        ieWrap: document.getElementById('ie-people-wrap'),
+      });
+      const form = picker.closest('form');
+      if (form) {
+        form.addEventListener('submit', function() {
+          rememberFromSinglePicker(picker);
+        });
+      }
+      return;
+    }
+
     bindSkillControls(picker, {
       ieWrap: document.getElementById('ie-people-wrap'),
     });
@@ -341,7 +590,38 @@
   });
 
   window.addEventListener('ledger-saved-skills-changed', function() {
-    document.querySelectorAll('.skill-picker-single, .skills-list-picker .skill-row').forEach(function(el) {
+    document.querySelectorAll('.skill-picker-single').forEach(function(picker) {
+      if (picker.dataset.searchable === 'true') {
+        const results = picker.querySelector('.skill-results');
+        const searchInput = picker.querySelector('.skill-search');
+        const chosenPanel = picker.querySelector('.skill-chosen');
+        if (results && searchInput && chosenPanel && chosenPanel.classList.contains('hidden')) {
+          renderSkillResults(results, searchInput.value, function(mod, skill) {
+            const moduleInput = picker.querySelector('.skill-module');
+            const valueInput = picker.querySelector('.skill-value');
+            const searchPanel = picker.querySelector('.skill-search-panel');
+            const chosenModule = picker.querySelector('.skill-chosen-module');
+            const chosenName = picker.querySelector('.skill-chosen-name');
+            moduleInput.value = mod;
+            valueInput.value = skill;
+            chosenModule.textContent = moduleLabels[mod] || mod;
+            chosenName.textContent = skill;
+            searchPanel.classList.add('hidden');
+            chosenPanel.classList.remove('hidden');
+            syncIeWrap(mod, document.getElementById('ie-people-wrap'));
+          });
+        }
+        return;
+      }
+      const moduleSelect = picker.querySelector('.skill-module');
+      const skillSelect = picker.querySelector('.skill-select');
+      const valueInput = picker.querySelector('.skill-value');
+      if (moduleSelect && skillSelect) {
+        populateSkillSelect(moduleSelect, skillSelect, valueInput ? valueInput.value : '');
+      }
+    });
+
+    document.querySelectorAll('.skills-list-picker .skill-row').forEach(function(el) {
       const moduleSelect = el.querySelector('.skill-module');
       const skillSelect = el.querySelector('.skill-select');
       const valueInput = el.querySelector('.skill-value');

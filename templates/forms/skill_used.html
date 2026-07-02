@@ -11,7 +11,7 @@
   action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
   class="space-y-6">
 
-  {{ skill_picker(payload.module or '', payload.skill or '', module_labels=skill_module_labels) }}
+  {{ skill_picker(payload.module or '', payload.skill or '', module_labels=skill_module_labels, searchable=true) }}
 
   <div id="ie-people-wrap" class="hidden">
     <label class="flex items-center gap-2 text-sm text-zinc-700">
