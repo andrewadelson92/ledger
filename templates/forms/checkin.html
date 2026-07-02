@@ -11,7 +11,7 @@
   action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
   class="space-y-6">
 
-  {{ emotion_wheel_picker(emotion_wheel, 'emotions_json', payload.emotions or [], 'intensity', 5) }}
+  {{ emotion_wheel_picker(emotion_wheel, 'emotions_json', payload.emotions or [], 'intensity', 5, show_intensity=false) }}
 
   <div>
     {{ field_label('What happened? (triggering event)') }}

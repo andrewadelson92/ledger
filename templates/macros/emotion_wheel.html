@@ -1,10 +1,11 @@
-{% macro emotion_wheel_picker(wheel, hidden_input_name, initial_emotions=[], intensity_key='intensity', max_intensity=5, start_empty=false, add_label='Add emotion', mirror_from=none, show_picker_hint=true) %}
+{% macro emotion_wheel_picker(wheel, hidden_input_name, initial_emotions=[], intensity_key='intensity', max_intensity=5, start_empty=false, add_label='Add emotion', mirror_from=none, show_picker_hint=true, show_intensity=true) %}
 <div class="emotion-picker"
   data-hidden-name="{{ hidden_input_name }}"
   data-intensity-key="{{ intensity_key }}"
   data-max-intensity="{{ max_intensity }}"
   data-storage-key="ledger_saved_emotions"
   data-start-empty="{{ 'true' if start_empty else 'false' }}"
+  data-show-intensity="{{ 'true' if show_intensity else 'false' }}"
   {% if mirror_from %}data-mirror-from="{{ mirror_from }}" data-intensity-only="true"{% endif %}>
 
   {% if not start_empty and show_picker_hint and not mirror_from %}
@@ -37,6 +38,7 @@
   const startEmpty = container.dataset.startEmpty === 'true';
   const mirrorFromId = container.dataset.mirrorFrom || '';
   const intensityOnly = container.dataset.intensityOnly === 'true';
+  const showIntensity = container.dataset.showIntensity !== 'false';
   const hidden = container.querySelector('input[type="hidden"]');
   const rowsWrap = container.querySelector('.emotion-rows');
   const addBtn = container.querySelector('.add-emotion-row');
@@ -152,7 +154,9 @@
       .filter(function(r) { return (r.name || '').trim(); })
       .map(function(r) {
         const o = { name: r.name.trim() };
-        o[intensityKey] = r.intensity;
+        if (showIntensity) {
+          o[intensityKey] = r.intensity;
+        }
         return o;
       });
     hidden.value = JSON.stringify(arr);
@@ -370,11 +374,13 @@
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="flex items-center gap-3' + (hasName ? '' : ' hidden') + ' emotion-intensity-row">' +
-          '<span class="text-sm text-zinc-700 shrink-0">Intensity</span>' +
-          '<input type="range" min="1" max="' + maxIntensity + '" value="' + row.intensity + '" class="emotion-intensity flex-1 accent-zinc-900" aria-label="Intensity for ' + escapeHtml(row.name || 'emotion') + '">' +
-          '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + row.intensity + '</span>' +
-        '</div>';
+        (showIntensity
+          ? '<div class="flex items-center gap-3' + (hasName ? '' : ' hidden') + ' emotion-intensity-row">' +
+              '<span class="text-sm text-zinc-700 shrink-0">Intensity</span>' +
+              '<input type="range" min="1" max="' + maxIntensity + '" value="' + row.intensity + '" class="emotion-intensity flex-1 accent-zinc-900" aria-label="Intensity for ' + escapeHtml(row.name || 'emotion') + '">' +
+              '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + row.intensity + '</span>' +
+            '</div>'
+          : '');
 
       const search = el.querySelector('.emotion-search');
       const list = el.querySelector('.emotion-list');

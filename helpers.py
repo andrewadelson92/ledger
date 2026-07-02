@@ -155,7 +155,11 @@ def parse_skills_json(raw: str | None) -> list[dict]:
     return skills
 
 
-def parse_emotions_json(raw: str | None, intensity_key: str = "intensity") -> list[dict]:
+def parse_emotions_json(
+    raw: str | None,
+    intensity_key: str = "intensity",
+    include_intensity: bool = True,
+) -> list[dict]:
     if not raw:
         return []
     try:
@@ -171,11 +175,14 @@ def parse_emotions_json(raw: str | None, intensity_key: str = "intensity") -> li
         name = (item.get("name") or "").strip()
         if not name:
             continue
-        try:
-            intensity = int(item.get(intensity_key, item.get("intensity", 1)))
-        except (TypeError, ValueError):
-            intensity = 1
-        out.append({"name": name, intensity_key: intensity})
+        entry: dict[str, Any] = {"name": name}
+        if include_intensity:
+            try:
+                intensity = int(item.get(intensity_key, item.get("intensity", 1)))
+            except (TypeError, ValueError):
+                intensity = 1
+            entry[intensity_key] = intensity
+        out.append(entry)
     return out
 
 
@@ -360,7 +367,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
 
     if entry_type == "checkin":
         payload = {
-            "emotions": parse_emotions_json(form.get("emotions_json")),
+            "emotions": parse_emotions_json(form.get("emotions_json"), include_intensity=False),
             "description": (form.get("description") or "").strip(),
         }
 
