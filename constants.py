@@ -43,7 +43,7 @@ BEHAVIORAL_ACTIVATION_EMOTIONS = [
 DIARY_CARD_EMOTIONS = [
     "Anxious",
     "Sad",
-    "Depressed",
+    "Overwhelmed",
     "Content",
     "Energized",
 ]
