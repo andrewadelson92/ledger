@@ -14,7 +14,7 @@
   {{ emotion_wheel_picker(emotion_wheel, 'emotions_json', payload.emotions or [], 'intensity', 5, show_intensity=false) }}
 
   <div>
-    {{ field_label('What happened? (triggering event)') }}
+    {{ field_label('Context (optional)') }}
     {{ text_input('description', payload.description or '', rows=4) }}
   </div>
 

@@ -43,9 +43,9 @@ BEHAVIORAL_ACTIVATION_EMOTIONS = [
 DIARY_CARD_EMOTIONS = [
     "Anxious",
     "Sad",
-    "Frustrated",
+    "Depressed",
     "Content",
-    "Grateful",
+    "Energized",
 ]
 
 SKILL_MODULES = ["DT", "ER", "IE", "M"]
