@@ -409,6 +409,8 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "activating_event": (form.get("activating_event") or "").strip(),
             "belief": (form.get("belief") or "").strip(),
             "consequence": (form.get("consequence") or "").strip(),
+            "alternate_belief": (form.get("alternate_belief") or "").strip(),
+            "alternate_consequence": (form.get("alternate_consequence") or "").strip(),
         }
 
     elif entry_type == "behavioral_activation":
