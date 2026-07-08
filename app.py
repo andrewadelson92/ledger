@@ -38,6 +38,11 @@ from helpers import (
     exposure_predicted_peak,
     parse_exposure_plan,
     merge_exposure_outcome,
+    opposite_action_has_plan,
+    opposite_action_needs_outcome,
+    opposite_action_emotion_rows,
+    parse_opposite_action_plan,
+    merge_opposite_action_outcome,
     entry_in_progress_can_delete,
     linked_journal_for,
     sync_diary_card_journal,
@@ -177,6 +182,12 @@ def index():
                 "entry": e,
                 "kind": "Exposure",
                 "title": p.get("situation"),
+            })
+        elif e.type == "opposite_action" and opposite_action_needs_outcome(p):
+            in_progress_items.append({
+                "entry": e,
+                "kind": "Opposite action",
+                "title": p.get("opposite_action") or p.get("action_urge"),
             })
     add_options = [
         {"type": t, "label": HOME_ADD_LABELS.get(t, ENTRY_TYPE_LABELS[t])}
@@ -325,6 +336,23 @@ def new_entry(entry_type):
                 f"forms/{entry_type}.html",
                 **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
             )
+        if entry_type == "opposite_action":
+            if not opposite_action_has_plan(payload):
+                flash("Add an emotion and describe the opposite action.")
+                return render_template(
+                    f"forms/{entry_type}.html",
+                    **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+                )
+            entry = Entry(
+                type=entry_type,
+                payload=payload,
+                linked_entry_id=linked_entry_id,
+                secondary_tag=secondary_tag,
+            )
+            db.session.add(entry)
+            db.session.commit()
+            flash("Opposite action in progress.")
+            return redirect(url_for("index", tab="today"))
         if entry_type == "daily_goal":
             if not payload.get("goal"):
                 flash("Daily goal is required.")
@@ -389,19 +417,27 @@ def entry_detail(entry_id):
         entry.type == "exposure_plan"
         and exposure_needs_outcome(entry.payload or {})
     )
+    needs_opposite_action_outcome = (
+        entry.type == "opposite_action"
+        and opposite_action_needs_outcome(entry.payload or {})
+    )
     return render_template(
         "entry_detail.html",
         entry=entry,
         linked_plan=linked_plan,
         linked_journal=linked_journal,
         linked_diary_card=linked_diary_card,
-        needs_outcome=needs_ba_outcome or needs_exposure_outcome,
+        needs_outcome=needs_ba_outcome or needs_exposure_outcome or needs_opposite_action_outcome,
         needs_ba_outcome=needs_ba_outcome,
         needs_exposure_outcome=needs_exposure_outcome,
+        needs_opposite_action_outcome=needs_opposite_action_outcome,
         summary=entry_summary(entry),
         label=type_label(entry.type),
         ba_emotions=behavioral_activation_emotion_rows(entry.payload or {})
         if entry.type == "behavioral_activation"
+        else [],
+        oa_emotions=opposite_action_emotion_rows(entry.payload or {})
+        if entry.type == "opposite_action"
         else [],
     )
 
@@ -414,6 +450,8 @@ def entry_outcome(entry_id):
         entry.payload = merge_behavioral_outcome(p, request.form)
     elif entry.type == "exposure_plan" and exposure_needs_outcome(p):
         entry.payload = merge_exposure_outcome(p, request.form)
+    elif entry.type == "opposite_action" and opposite_action_needs_outcome(p):
+        entry.payload = merge_opposite_action_outcome(p, request.form)
     else:
         abort(400)
     _touch_entry(entry)
@@ -445,6 +483,10 @@ def entry_edit(entry_id):
             secondary_tag = entry.secondary_tag
         elif entry.type == "exposure_plan":
             payload = parse_exposure_plan(request.form, existing=entry.payload or {})
+            linked_entry_id = entry.linked_entry_id
+            secondary_tag = entry.secondary_tag
+        elif entry.type == "opposite_action":
+            payload = parse_opposite_action_plan(request.form, existing=entry.payload or {})
             linked_entry_id = entry.linked_entry_id
             secondary_tag = entry.secondary_tag
         elif entry.type == "journal":
@@ -513,6 +555,21 @@ def entry_edit(entry_id):
                 )
             if not exposure_has_plan(payload):
                 flash("Rate SUDS before and predicted peak SUDS.")
+                return render_template(
+                    f"forms/{entry.type}.html",
+                    **_form_render_ctx(
+                        entry.type,
+                        payload,
+                        is_edit=True,
+                        entry_id=entry.id,
+                        exposure_plans=[],
+                        linked_entry_id=entry.linked_entry_id,
+                        secondary_tag=entry.secondary_tag,
+                    ),
+                )
+        if entry.type == "opposite_action":
+            if not opposite_action_has_plan(payload):
+                flash("Add an emotion and describe the opposite action.")
                 return render_template(
                     f"forms/{entry.type}.html",
                     **_form_render_ctx(

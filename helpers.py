@@ -42,6 +42,8 @@ def entry_log_label(entry) -> str:
         return f"{label} · In progress"
     if entry.type == "exposure_plan" and exposure_needs_outcome(p):
         return f"{label} · In progress"
+    if entry.type == "opposite_action" and opposite_action_needs_outcome(p):
+        return f"{label} · In progress"
     return label
 
 
@@ -408,13 +410,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         }
 
     elif entry_type == "opposite_action":
-        payload = {
-            "emotions": parse_emotions_json(form.get("emotions_before_json"), "intensity_before"),
-            "action_urge": (form.get("action_urge") or "").strip(),
-            "fits_facts": (form.get("fits_facts") or "").strip(),
-            "opposite_action": (form.get("opposite_action") or "").strip(),
-            "emotions_after": parse_emotions_json(form.get("emotions_after_json"), "intensity_after"),
-        }
+        payload = parse_opposite_action_plan(form)
 
     elif entry_type == "abc":
         payload = {
@@ -541,6 +537,64 @@ def merge_behavioral_outcome(existing: dict, form) -> dict:
     return payload
 
 
+def opposite_action_has_plan(payload: dict | None = None) -> bool:
+    p = payload or {}
+    return bool(p.get("emotions")) and bool(p.get("opposite_action"))
+
+
+def opposite_action_is_complete(payload: dict | None = None) -> bool:
+    return bool((payload or {}).get("emotions_after"))
+
+
+def opposite_action_needs_outcome(payload: dict | None = None) -> bool:
+    return opposite_action_has_plan(payload) and not opposite_action_is_complete(payload)
+
+
+def opposite_action_emotion_rows(payload: dict | None = None) -> list[dict]:
+    p = payload or {}
+    after = {
+        e.get("name"): e.get("intensity_after")
+        for e in (p.get("emotions_after") or [])
+        if isinstance(e, dict) and e.get("name")
+    }
+    rows = []
+    for e in p.get("emotions") or []:
+        if not isinstance(e, dict) or not e.get("name"):
+            continue
+        rows.append({
+            "name": e.get("name"),
+            "before": e.get("intensity_before"),
+            "after": after.get(e.get("name")),
+        })
+    return rows
+
+
+def parse_opposite_action_plan(form, existing: dict | None = None) -> dict:
+    existing = existing or {}
+    return {
+        "emotions": parse_emotions_json(form.get("emotions_before_json"), "intensity_before"),
+        "action_urge": (form.get("action_urge") or "").strip(),
+        "fits_facts": (form.get("fits_facts") or "").strip(),
+        "opposite_action": (form.get("opposite_action") or "").strip(),
+        "emotions_after": existing.get("emotions_after") or [],
+    }
+
+
+def merge_opposite_action_outcome(existing: dict, form) -> dict:
+    payload = dict(existing)
+    after = []
+    for i, e in enumerate(payload.get("emotions") or []):
+        if not isinstance(e, dict) or not e.get("name"):
+            continue
+        value = parse_int(form.get(f"after_intensity_{i}"))
+        after.append({
+            "name": e.get("name"),
+            "intensity_after": value if value is not None else e.get("intensity_before"),
+        })
+    payload["emotions_after"] = after
+    return payload
+
+
 def exposure_predicted_peak(payload: dict | None) -> int | None:
     p = payload or {}
     peak = p.get("predicted_peak_suds")
@@ -599,6 +653,8 @@ def entry_in_progress_can_delete(entry) -> bool:
         return behavioral_activation_needs_outcome(p)
     if entry.type == "exposure_plan":
         return exposure_needs_outcome(p)
+    if entry.type == "opposite_action":
+        return opposite_action_needs_outcome(p)
     return False
 
 

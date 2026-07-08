@@ -40,12 +40,8 @@
     {{ text_input('opposite_action', payload.opposite_action or '', rows=3, required=true, placeholder='What will you do instead — opposite to the urge?') }}
   </div>
 
-  <div>
-    <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotions after (1–10)</h2>
-    <p class="text-sm text-zinc-600 mb-3">Re-rate the same emotions after the opposite action.</p>
-    {{ emotion_wheel_picker(emotion_wheel, 'emotions_after_json', payload.emotions_after or [], 'intensity_after', 10, mirror_from='emotions_before_json', show_picker_hint=false) }}
-  </div>
+  <p class="text-sm text-zinc-500">You'll re-rate the emotion after you've done the opposite action.</p>
 
-  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index'), 'Save' if is_edit else 'Start') }}
 </form>
 {% endblock %}
