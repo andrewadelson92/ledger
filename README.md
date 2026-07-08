@@ -12,6 +12,7 @@ Single-user, no auth. Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL
 | Diary Card | Fixed emotions, target behavior urges, optional linked journal |
 | Skill Used | DBT module + skill |
 | Thought Record | Before/after emotions with reframing fields |
+| Opposite Action | Emotion + urge, fit-the-facts check, opposite action, before/after emotions |
 | ABC Worksheet | Activating event, belief, consequence |
 | Behavioral Activation | Two-step: plan joy/sadness levels → complete after activity |
 | Chain Analysis | Problem behavior chain with typed links |

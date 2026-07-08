@@ -93,6 +93,9 @@ def entry_summary(entry) -> str:
     if t == "thought_record":
         return _truncate(p.get("automatic_thought") or p.get("situation")) or "Thought record"
 
+    if t == "opposite_action":
+        return _truncate(p.get("opposite_action") or p.get("action_urge")) or "Opposite action"
+
     if t == "abc":
         return _truncate(p.get("activating_event") or p.get("belief")) or "ABC worksheet"
 
@@ -401,6 +404,15 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "evidence_for": (form.get("evidence_for") or "").strip(),
             "evidence_against": (form.get("evidence_against") or "").strip(),
             "alternative_thought": (form.get("alternative_thought") or "").strip(),
+            "emotions_after": parse_emotions_json(form.get("emotions_after_json"), "intensity_after"),
+        }
+
+    elif entry_type == "opposite_action":
+        payload = {
+            "emotions": parse_emotions_json(form.get("emotions_before_json"), "intensity_before"),
+            "action_urge": (form.get("action_urge") or "").strip(),
+            "fits_facts": (form.get("fits_facts") or "").strip(),
+            "opposite_action": (form.get("opposite_action") or "").strip(),
             "emotions_after": parse_emotions_json(form.get("emotions_after_json"), "intensity_after"),
         }
 

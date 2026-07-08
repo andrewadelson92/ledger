@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, form_actions %}
+{% from "macros/emotion_wheel.html" import emotion_wheel_picker %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">When an emotion doesn't fit the facts — or acting on it won't help — act opposite to its urge.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-6">
+
+  <div>
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotion (1–10)</h2>
+    <p class="text-sm text-zinc-600 mb-3">Add the emotion you're working with. The same emotions carry through for re-rating after.</p>
+    {{ emotion_wheel_picker(emotion_wheel, 'emotions_before_json', payload.emotions or [], 'intensity_before', 10, show_picker_hint=false) }}
+  </div>
+
+  <div>
+    {{ field_label('Action urge', true) }}
+    {{ text_input('action_urge', payload.action_urge or '', rows=3, required=true, placeholder='What does this emotion make you want to do?') }}
+  </div>
+
+  <div>
+    {{ field_label('Does the emotion fit the facts?') }}
+    <select name="fits_facts"
+      class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500">
+      {% set fits_options = ['Fits the facts', "Doesn't fit the facts", "Fits, but acting on it isn't effective"] %}
+      <option value="">Select…</option>
+      {% for opt in fits_options %}
+      <option value="{{ opt }}" {% if payload.fits_facts == opt %}selected{% endif %}>{{ opt }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    {{ field_label('Opposite action', true) }}
+    {{ text_input('opposite_action', payload.opposite_action or '', rows=3, required=true, placeholder='What will you do instead — opposite to the urge?') }}
+  </div>
+
+  <div>
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotions after (1–10)</h2>
+    <p class="text-sm text-zinc-600 mb-3">Re-rate the same emotions after the opposite action.</p>
+    {{ emotion_wheel_picker(emotion_wheel, 'emotions_after_json', payload.emotions_after or [], 'intensity_after', 10, mirror_from='emotions_before_json', show_picker_hint=false) }}
+  </div>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+</form>
+{% endblock %}
