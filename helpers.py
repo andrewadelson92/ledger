@@ -11,6 +11,7 @@ from constants import (
     SKILL_MODULE_LABELS,
     DIARY_CARD_EMOTIONS,
     BEHAVIORAL_ACTIVATION_EMOTIONS,
+    DAILY_PLANNER_HOURS,
 )
 
 
@@ -33,6 +34,48 @@ def find_todays_daily_goal(entries, tz: ZoneInfo, today=None):
         if entry_local_date(entry.created_at, tz) == today:
             return entry
     return None
+
+
+def find_todays_entry(entries, entry_type: str, tz: ZoneInfo, today=None):
+    """Return the most recent entry of a type for the local calendar day, if any."""
+    today = today or datetime.now(tz).date()
+    for entry in entries:
+        if entry.type != entry_type:
+            continue
+        if entry_local_date(entry.created_at, tz) == today:
+            return entry
+    return None
+
+
+def format_planner_hour(hour: int) -> str:
+    if hour == 0:
+        return "12:00 AM"
+    if hour < 12:
+        return f"{hour}:00 AM"
+    if hour == 12:
+        return "12:00 PM"
+    return f"{hour - 12}:00 PM"
+
+
+def parse_agenda_slots(form) -> list[dict]:
+    slots = []
+    for hour in DAILY_PLANNER_HOURS:
+        plan = (form.get(f"agenda_{hour}") or "").strip()
+        if plan:
+            slots.append({"hour": hour, "plan": plan})
+    return slots
+
+
+def agenda_slots_for_form(payload: dict | None = None) -> list[dict]:
+    by_hour = {
+        s.get("hour"): (s.get("plan") or "")
+        for s in ((payload or {}).get("agenda") or [])
+        if isinstance(s, dict) and s.get("hour") is not None
+    }
+    return [
+        {"hour": hour, "label": format_planner_hour(hour), "plan": by_hour.get(hour, "")}
+        for hour in DAILY_PLANNER_HOURS
+    ]
 
 
 def entry_log_label(entry) -> str:
@@ -75,6 +118,19 @@ def entry_summary(entry) -> str:
         if goal and skills:
             return f"{goal} · {len(skills)} skill{'s' if len(skills) != 1 else ''}"
         return goal or "Daily goal"
+
+    if t == "daily_planner":
+        intentions = _truncate(p.get("intentions"), 50)
+        actions = p.get("committed_actions") or ""
+        agenda = p.get("agenda") or []
+        parts = []
+        if intentions:
+            parts.append(intentions)
+        if actions.strip():
+            parts.append("actions")
+        if agenda:
+            parts.append(f"{len(agenda)} hour{'s' if len(agenda) != 1 else ''}")
+        return " · ".join(parts) if parts else "Daily planner"
 
     if t == "diary_card":
         emotions = p.get("emotions") or []
@@ -380,6 +436,13 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         payload = {
             "goal": (form.get("goal") or "").strip(),
             "skills": parse_skills_json(form.get("skills_json")),
+        }
+
+    elif entry_type == "daily_planner":
+        payload = {
+            "intentions": (form.get("intentions") or "").strip(),
+            "committed_actions": (form.get("committed_actions") or "").strip(),
+            "agenda": parse_agenda_slots(form),
         }
 
     elif entry_type == "diary_card":

@@ -123,6 +123,35 @@
   {% endif %}
 </section>
 
+{% elif entry.type == 'daily_planner' %}
+<section class="space-y-4">
+  {% if p.intentions %}
+  <div class="rounded-lg border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Intentions</h2>
+    <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p.intentions }}</p>
+  </div>
+  {% endif %}
+  {% if p.committed_actions %}
+  <div class="rounded-lg border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Committed actions</h2>
+    <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p.committed_actions }}</p>
+  </div>
+  {% endif %}
+  {% if p.agenda %}
+  <div class="rounded-lg border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-medium text-zinc-800 mb-3">Agenda</h2>
+    <ul class="space-y-3">
+      {% for slot in p.agenda %}
+      <li class="flex gap-3 text-sm">
+        <span class="w-20 shrink-0 font-medium text-zinc-500">{{ format_planner_hour(slot.hour) }}</span>
+        <span class="text-zinc-700 whitespace-pre-wrap">{{ slot.plan }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+
 {% elif entry.type == 'skill_used' %}
 <section class="rounded-lg border border-zinc-200 bg-white p-4 space-y-3 text-sm">
   <p><span class="font-medium text-zinc-800">Module:</span> {{ skill_module_labels.get(p.module, p.module) }}</p>

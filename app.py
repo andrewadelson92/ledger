@@ -48,6 +48,9 @@ from helpers import (
     sync_diary_card_journal,
     parse_journal_fields,
     find_todays_daily_goal,
+    find_todays_entry,
+    agenda_slots_for_form,
+    format_planner_hour,
 )
 
 ADD_HIDDEN_TYPES = frozenset({"exposure_checkin"})
@@ -103,6 +106,8 @@ def inject_globals():
         "exposure_is_complete": exposure_is_complete,
         "exposure_needs_outcome": exposure_needs_outcome,
         "exposure_predicted_peak": exposure_predicted_peak,
+        "agenda_slots_for_form": agenda_slots_for_form,
+        "format_planner_hour": format_planner_hour,
     }
 
 
@@ -119,6 +124,8 @@ for _name, _fn in (
     ("exposure_is_complete", exposure_is_complete),
     ("exposure_needs_outcome", exposure_needs_outcome),
     ("exposure_predicted_peak", exposure_predicted_peak),
+    ("agenda_slots_for_form", agenda_slots_for_form),
+    ("format_planner_hour", format_planner_hour),
 ):
     app.add_template_global(_fn, _name)
 
@@ -202,6 +209,7 @@ def index():
         add_options=add_options,
         in_progress_items=in_progress_items,
         todays_daily_goal=_todays_daily_goal(),
+        todays_daily_planner=_todays_daily_planner(),
         today_label=today_label,
     )
 
@@ -230,6 +238,15 @@ def _todays_daily_goal():
     return find_todays_daily_goal(candidates, LOCAL_TZ)
 
 
+def _todays_daily_planner():
+    candidates = (
+        Entry.query.filter_by(type="daily_planner")
+        .order_by(Entry.created_at.desc())
+        .all()
+    )
+    return find_todays_entry(candidates, "daily_planner", LOCAL_TZ)
+
+
 def _save_daily_goal(payload: dict) -> Entry:
     existing = _todays_daily_goal()
     if existing:
@@ -243,6 +260,19 @@ def _save_daily_goal(payload: dict) -> Entry:
     return entry
 
 
+def _save_daily_planner(payload: dict) -> Entry:
+    existing = _todays_daily_planner()
+    if existing:
+        existing.payload = payload
+        _touch_entry(existing)
+        db.session.commit()
+        return existing
+    entry = Entry(type="daily_planner", payload=payload)
+    db.session.add(entry)
+    db.session.commit()
+    return entry
+
+
 def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=None, **extra):
     ctx = {
         "entry_type": entry_type,
@@ -250,6 +280,8 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         "payload": payload or {},
         **extra,
     }
+    if entry_type == "daily_planner":
+        ctx["agenda_slots"] = agenda_slots_for_form(ctx["payload"])
     if entry_type == "diary_card":
         ctx["extra_emotions"] = diary_card_extra_emotions(ctx["payload"].get("emotions"))
         if form is not None:
@@ -369,6 +401,16 @@ def new_entry(entry_type):
             _save_daily_goal(payload)
             flash("Daily goal saved.")
             return redirect(url_for("index", tab="today"))
+        if entry_type == "daily_planner":
+            if not payload.get("intentions") and not payload.get("committed_actions"):
+                flash("Add intentions and/or committed actions for today.")
+                return render_template(
+                    f"forms/{entry_type}.html",
+                    **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+                )
+            _save_daily_planner(payload)
+            flash("Daily planner saved.")
+            return redirect(url_for("index", tab="today"))
         entry = Entry(
             type=entry_type,
             payload=payload,
@@ -381,6 +423,11 @@ def new_entry(entry_type):
 
     if entry_type == "daily_goal":
         existing = _todays_daily_goal()
+        if existing:
+            return redirect(url_for("entry_edit", entry_id=existing.id))
+
+    if entry_type == "daily_planner":
+        existing = _todays_daily_planner()
         if existing:
             return redirect(url_for("entry_edit", entry_id=existing.id))
 
@@ -611,6 +658,21 @@ def entry_edit(entry_id):
                         secondary_tag=entry.secondary_tag,
                     ),
                 )
+        if entry.type == "daily_planner":
+            if not payload.get("intentions") and not payload.get("committed_actions"):
+                flash("Add intentions and/or committed actions for today.")
+                return render_template(
+                    f"forms/{entry.type}.html",
+                    **_form_render_ctx(
+                        entry.type,
+                        payload,
+                        is_edit=True,
+                        entry_id=entry.id,
+                        exposure_plans=[],
+                        linked_entry_id=entry.linked_entry_id,
+                        secondary_tag=entry.secondary_tag,
+                    ),
+                )
         entry.payload = payload
         entry.linked_entry_id = linked_entry_id
         entry.secondary_tag = secondary_tag
@@ -619,7 +681,7 @@ def entry_edit(entry_id):
             sync_diary_card_journal(entry, request.form)
         db.session.commit()
         flash("Entry updated.")
-        if entry.type == "daily_goal":
+        if entry.type in ("daily_goal", "daily_planner"):
             return redirect(url_for("index", tab="today"))
         return redirect(url_for("entry_detail", entry_id=entry.id))
 

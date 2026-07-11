@@ -1,6 +1,7 @@
 ENTRY_TYPES = [
     "checkin",
     "daily_goal",
+    "daily_planner",
     "diary_card",
     "skill_used",
     "thought_record",
@@ -16,6 +17,7 @@ ENTRY_TYPES = [
 ENTRY_TYPE_LABELS = {
     "checkin": "Emotion Check-In",
     "daily_goal": "Daily Goal",
+    "daily_planner": "Daily Planner",
     "diary_card": "Diary Card",
     "skill_used": "Skill Used",
     "thought_record": "Thought Record",
@@ -41,13 +43,14 @@ BEHAVIORAL_ACTIVATION_EMOTIONS = [
     {"key": "sadness", "label": "Sadness"},
 ]
 
-# Fixed emotions for diary card v1 (intensity 1–5 each)
+# Fixed emotions for diary card (intensity 1–5 each)
 DIARY_CARD_EMOTIONS = [
     "Anxious",
     "Sad",
     "Overwhelmed",
     "Content",
     "Energized",
+    "Numb",
 ]
 
 SKILL_MODULES = ["DT", "ER", "IE", "M"]
@@ -106,3 +109,7 @@ EMOTION_WHEEL = {
 }
 
 ALL_EMOTIONS = [e for emotions in EMOTION_WHEEL.values() for e in emotions]
+
+# Optional hour slots for daily planner agenda (local day)
+DAILY_PLANNER_HOURS = list(range(6, 23))  # 6am–10pm
+
