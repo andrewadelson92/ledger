@@ -57,6 +57,46 @@
     localStorage.setItem(storageKey, JSON.stringify(list));
   }
 
+  function renameBehavior(list, fromName, toName) {
+    const fromLower = fromName.toLowerCase();
+    const toLower = toName.toLowerCase();
+    let changed = false;
+    const next = [];
+    list.forEach(function(behavior) {
+      if ((behavior || '').toLowerCase() === fromLower) {
+        if (!next.some(function(b) { return b.toLowerCase() === toLower; })) {
+          next.push(toName);
+        }
+        changed = true;
+      } else {
+        next.push(behavior);
+      }
+    });
+    return { list: next, changed: changed };
+  }
+
+  function migrateBehaviorNames() {
+    const loaded = loadBehaviors();
+    const renamed = renameBehavior(loaded, 'Social media', 'Porn');
+    if (renamed.changed) {
+      saveBehaviors(renamed.list);
+    }
+    if (initialUrges['Social media'] !== undefined && initialUrges['Porn'] === undefined) {
+      initialUrges['Porn'] = initialUrges['Social media'];
+      delete initialUrges['Social media'];
+    }
+    Object.keys(initialUrges).forEach(function(key) {
+      if (key.toLowerCase() === 'social media' && key !== 'Social media') {
+        if (initialUrges['Porn'] === undefined) {
+          initialUrges['Porn'] = initialUrges[key];
+        }
+        delete initialUrges[key];
+      }
+    });
+  }
+
+  migrateBehaviorNames();
+
   function escapeHtml(value) {
     return String(value || '')
       .replace(/&/g, '&amp;')
