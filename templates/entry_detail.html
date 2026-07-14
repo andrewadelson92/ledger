@@ -52,6 +52,16 @@
     </ul>
   </div>
   {% endif %}
+  {% if p.urges %}
+  <div>
+    <h2 class="text-sm font-medium text-zinc-800 mb-2">Current urges</h2>
+    <ul class="space-y-1">
+      {% for u in p.urges %}
+      <li class="text-sm text-zinc-700">{{ u.behavior }} — {{ u.intensity }}/5</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
   {% if p.description %}
   <div>
     <h2 class="text-sm font-medium text-zinc-800 mb-1">Context</h2>

@@ -105,11 +105,17 @@ def entry_summary(entry) -> str:
 
     if t == "checkin":
         emotions = p.get("emotions") or []
+        urges = p.get("urges") or []
+        parts = []
         if emotions:
             names = ", ".join(e.get("name", "?") for e in emotions[:3])
             if len(emotions) > 3:
                 names += f" +{len(emotions) - 3}"
-            return names
+            parts.append(names)
+        if urges:
+            parts.append(f"{len(urges)} urge{'s' if len(urges) != 1 else ''}")
+        if parts:
+            return " · ".join(parts)
         return _truncate(p.get("description")) or "Check-in"
 
     if t == "daily_goal":
@@ -429,6 +435,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
     if entry_type == "checkin":
         payload = {
             "emotions": parse_emotions_json(form.get("emotions_json"), include_intensity=False),
+            "urges": parse_urges_json(form.get("urges_json")),
             "description": (form.get("description") or "").strip(),
         }
 
