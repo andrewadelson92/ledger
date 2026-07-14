@@ -15,6 +15,7 @@ from constants import (
     SKILL_MODULE_LABELS,
     EMOTION_WHEEL,
     BEHAVIORAL_ACTIVATION_EMOTIONS,
+    DEFAULT_TARGET_BEHAVIORS,
 )
 from helpers import (
     type_label,
@@ -93,6 +94,7 @@ def inject_globals():
         "skill_module_labels": SKILL_MODULE_LABELS,
         "module_skills": MODULE_SKILLS,
         "emotion_wheel": EMOTION_WHEEL,
+        "default_target_behaviors": DEFAULT_TARGET_BEHAVIORS,
         "chain_link_type_label": chain_link_type_label,
         "diary_card_emotion_values": diary_card_emotion_values,
         "diary_card_extra_emotions": diary_card_extra_emotions,

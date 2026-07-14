@@ -15,7 +15,7 @@
   {{ emotion_wheel_picker(emotion_wheel, 'emotions_json', payload.emotions or [], 'intensity', 5, show_intensity=false) }}
 
   <section class="border-t border-zinc-200 pt-6">
-    {{ checkin_urges(payload.urges or []) }}
+    {{ checkin_urges(payload.urges or [], default_target_behaviors) }}
   </section>
 
   <div>

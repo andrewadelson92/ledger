@@ -43,7 +43,7 @@
   </section>
 
   <section class="border-t border-zinc-200 pt-8">
-    {{ target_behavior_urges(payload.urges or []) }}
+    {{ target_behavior_urges(payload.urges or [], default_target_behaviors) }}
   </section>
 
   <section class="border-t border-zinc-200 pt-8">

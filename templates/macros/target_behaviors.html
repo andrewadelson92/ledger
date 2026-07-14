@@ -1,4 +1,4 @@
-{% macro checkin_urges(initial_urges=[]) %}
+{% macro checkin_urges(initial_urges=[], defaults=[]) %}
 <div class="checkin-urges space-y-4" data-storage-key="ledger_target_behaviors">
   <div>
     <h2 class="text-sm font-medium text-zinc-800 mb-1">Current urges</h2>
@@ -38,6 +38,7 @@
 
   <input type="hidden" name="urges_json" class="urges-json-input" value="">
   <script type="application/json" class="initial-urges-data">{{ initial_urges|tojson }}</script>
+  <script type="application/json" class="default-behaviors-data">{{ defaults|default([], true)|tojson }}</script>
 </div>
 
 <script>
@@ -56,6 +57,11 @@
   const select = container.querySelector('.urge-behavior-select');
   const addBtn = container.querySelector('.add-urge-btn');
   const hidden = container.querySelector('.urges-json-input');
+
+  let defaultBehaviors = [];
+  try {
+    defaultBehaviors = JSON.parse(container.querySelector('.default-behaviors-data').textContent);
+  } catch (e) {}
 
   let rows = [];
   try {
@@ -86,13 +92,19 @@
           renamed.push(behavior);
         }
       });
+      list = renamed;
+      (defaultBehaviors || []).forEach(function(name) {
+        if (!list.some(function(b) { return b.toLowerCase() === name.toLowerCase(); })) {
+          list.push(name);
+          changed = true;
+        }
+      });
       if (changed) {
-        localStorage.setItem(storageKey, JSON.stringify(renamed));
-        list = renamed;
+        localStorage.setItem(storageKey, JSON.stringify(list));
       }
       return list;
     } catch (e) {
-      return [];
+      return (defaultBehaviors || []).slice();
     }
   }
 
@@ -202,7 +214,7 @@
 </script>
 {% endmacro %}
 
-{% macro target_behavior_urges(initial_urges=[]) %}
+{% macro target_behavior_urges(initial_urges=[], defaults=[]) %}
 <div class="target-behavior-urges space-y-4" data-storage-key="ledger_target_behaviors">
   <div>
     <h2 class="text-sm font-medium text-zinc-800 mb-1">Target behavior urges</h2>
@@ -225,6 +237,7 @@
 
   <input type="hidden" name="urges_json" class="urges-json-input" value="">
   <script type="application/json" class="initial-urges-data">{{ initial_urges|tojson }}</script>
+  <script type="application/json" class="default-behaviors-data">{{ defaults|default([], true)|tojson }}</script>
 </div>
 
 <script>
@@ -240,6 +253,11 @@
   const newInput = container.querySelector('.new-behavior-input');
   const addBtn = container.querySelector('.add-behavior');
 
+  let defaultBehaviors = [];
+  try {
+    defaultBehaviors = JSON.parse(container.querySelector('.default-behaviors-data').textContent);
+  } catch (e) {}
+
   let initialUrges = {};
   try {
     JSON.parse(container.querySelector('.initial-urges-data').textContent).forEach(function(u) {
@@ -247,18 +265,31 @@
     });
   } catch (e) {}
 
+  function saveBehaviors(list) {
+    localStorage.setItem(storageKey, JSON.stringify(list));
+  }
+
   function loadBehaviors() {
     try {
       const raw = localStorage.getItem(storageKey);
       const parsed = JSON.parse(raw || '[]');
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      let list = Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      const renamed = renameBehavior(list, 'Social media', 'Porn');
+      list = renamed.list;
+      let changed = renamed.changed;
+      (defaultBehaviors || []).forEach(function(name) {
+        if (!list.some(function(b) { return b.toLowerCase() === name.toLowerCase(); })) {
+          list.push(name);
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveBehaviors(list);
+      }
+      return list;
     } catch (e) {
-      return [];
+      return (defaultBehaviors || []).slice();
     }
-  }
-
-  function saveBehaviors(list) {
-    localStorage.setItem(storageKey, JSON.stringify(list));
   }
 
   function renameBehavior(list, fromName, toName) {
@@ -280,11 +311,7 @@
   }
 
   function migrateBehaviorNames() {
-    const loaded = loadBehaviors();
-    const renamed = renameBehavior(loaded, 'Social media', 'Porn');
-    if (renamed.changed) {
-      saveBehaviors(renamed.list);
-    }
+    loadBehaviors();
     if (initialUrges['Social media'] !== undefined && initialUrges['Porn'] === undefined) {
       initialUrges['Porn'] = initialUrges['Social media'];
       delete initialUrges['Social media'];

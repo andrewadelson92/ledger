@@ -53,6 +53,11 @@ DIARY_CARD_EMOTIONS = [
     "Numb",
 ]
 
+# Default target behaviors for diary card + check-in urge pickers
+DEFAULT_TARGET_BEHAVIORS = [
+    "Laying in bed",
+]
+
 SKILL_MODULES = ["DT", "ER", "IE", "M"]
 
 SKILL_MODULE_LABELS = {
