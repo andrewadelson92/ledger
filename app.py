@@ -16,6 +16,7 @@ from constants import (
     EMOTION_WHEEL,
     BEHAVIORAL_ACTIVATION_EMOTIONS,
     DEFAULT_TARGET_BEHAVIORS,
+    DIARY_CARD_EMOTIONS,
 )
 from helpers import (
     type_label,
@@ -44,7 +45,7 @@ from helpers import (
     opposite_action_emotion_rows,
     parse_opposite_action_plan,
     merge_opposite_action_outcome,
-    entry_in_progress_can_delete,
+    entry_can_delete,
     linked_journal_for,
     sync_diary_card_journal,
     parse_journal_fields,
@@ -52,9 +53,13 @@ from helpers import (
     find_todays_entry,
     agenda_slots_for_form,
     format_planner_hour,
+    emotion_wheel_excluding,
+    daily_planner_focus,
+    daily_planner_has_diary,
+    diary_card_extra_emotions,
 )
 
-ADD_HIDDEN_TYPES = frozenset({"exposure_checkin"})
+ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card"})
 
 _app_root = os.path.dirname(os.path.abspath(__file__))
 
@@ -95,6 +100,7 @@ def inject_globals():
         "module_skills": MODULE_SKILLS,
         "emotion_wheel": EMOTION_WHEEL,
         "default_target_behaviors": DEFAULT_TARGET_BEHAVIORS,
+        "diary_card_emotions": DIARY_CARD_EMOTIONS,
         "chain_link_type_label": chain_link_type_label,
         "diary_card_emotion_values": diary_card_emotion_values,
         "diary_card_extra_emotions": diary_card_extra_emotions,
@@ -110,6 +116,8 @@ def inject_globals():
         "exposure_predicted_peak": exposure_predicted_peak,
         "agenda_slots_for_form": agenda_slots_for_form,
         "format_planner_hour": format_planner_hour,
+        "daily_planner_focus": daily_planner_focus,
+        "daily_planner_has_diary": daily_planner_has_diary,
     }
 
 
@@ -128,6 +136,8 @@ for _name, _fn in (
     ("exposure_predicted_peak", exposure_predicted_peak),
     ("agenda_slots_for_form", agenda_slots_for_form),
     ("format_planner_hour", format_planner_hour),
+    ("daily_planner_focus", daily_planner_focus),
+    ("daily_planner_has_diary", daily_planner_has_diary),
 ):
     app.add_template_global(_fn, _name)
 
@@ -210,9 +220,11 @@ def index():
         tab=tab,
         add_options=add_options,
         in_progress_items=in_progress_items,
-        todays_daily_goal=_todays_daily_goal(),
         todays_daily_planner=_todays_daily_planner(),
         today_label=today_label,
+        daily_planner_focus=daily_planner_focus,
+        daily_planner_has_diary=daily_planner_has_diary,
+        diary_card_emotion_values=diary_card_emotion_values,
     )
 
 
@@ -284,6 +296,11 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
     }
     if entry_type == "daily_planner":
         ctx["agenda_slots"] = agenda_slots_for_form(ctx["payload"])
+        ctx["noted_emotion_wheel"] = emotion_wheel_excluding(DIARY_CARD_EMOTIONS)
+        ctx["diary_card_emotions"] = DIARY_CARD_EMOTIONS
+        ctx["diary_extra_emotions"] = diary_card_extra_emotions(
+            ctx["payload"].get("diary_emotions")
+        )
     if entry_type == "diary_card":
         ctx["extra_emotions"] = diary_card_extra_emotions(ctx["payload"].get("emotions"))
         if form is not None:
@@ -404,14 +421,14 @@ def new_entry(entry_type):
             flash("Daily goal saved.")
             return redirect(url_for("index", tab="today"))
         if entry_type == "daily_planner":
-            if not payload.get("intentions") and not payload.get("committed_actions"):
-                flash("Add intentions and/or committed actions for today.")
+            if not payload.get("focus"):
+                flash("Today's focus is required.")
                 return render_template(
                     f"forms/{entry_type}.html",
                     **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
                 )
             _save_daily_planner(payload)
-            flash("Daily planner saved.")
+            flash("Today saved.")
             return redirect(url_for("index", tab="today"))
         entry = Entry(
             type=entry_type,
@@ -476,6 +493,7 @@ def entry_detail(entry_id):
         linked_plan=linked_plan,
         linked_journal=linked_journal,
         linked_diary_card=linked_diary_card,
+        can_delete=entry_can_delete(entry),
         needs_outcome=needs_ba_outcome or needs_exposure_outcome or needs_opposite_action_outcome,
         needs_ba_outcome=needs_ba_outcome,
         needs_exposure_outcome=needs_exposure_outcome,
@@ -512,7 +530,7 @@ def entry_outcome(entry_id):
 @app.route("/entry/<int:entry_id>/delete", methods=["POST"])
 def entry_delete(entry_id):
     entry = _get_entry_or_404(entry_id)
-    if not entry_in_progress_can_delete(entry):
+    if not entry_can_delete(entry):
         abort(400)
     kind = type_label(entry.type)
     db.session.delete(entry)
@@ -661,8 +679,8 @@ def entry_edit(entry_id):
                     ),
                 )
         if entry.type == "daily_planner":
-            if not payload.get("intentions") and not payload.get("committed_actions"):
-                flash("Add intentions and/or committed actions for today.")
+            if not payload.get("focus"):
+                flash("Today's focus is required.")
                 return render_template(
                     f"forms/{entry.type}.html",
                     **_form_render_ctx(

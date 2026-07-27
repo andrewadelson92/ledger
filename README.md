@@ -9,9 +9,8 @@ Single-user, no auth. Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL
 | Type | Description |
 |------|-------------|
 | Emotion Check-In | Quick emotion + intensity log |
-| Daily Goal | Goal + skills used for today |
-| Daily Planner | Intentions, committed actions, optional hour-by-hour agenda |
-| Diary Card | Fixed emotions, target behavior urges, optional linked journal |
+| Today | Focus, noted emotions, optional diary card + agenda |
+| Diary Card | Legacy; diary is now part of Today |
 | Skill Used | DBT module + skill |
 | Thought Record | Before/after emotions with reframing fields |
 | Opposite Action | Emotion + urge, fit-the-facts check, opposite action, before/after emotions |

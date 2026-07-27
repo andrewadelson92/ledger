@@ -17,7 +17,7 @@ ENTRY_TYPES = [
 ENTRY_TYPE_LABELS = {
     "checkin": "Emotion Check-In",
     "daily_goal": "Daily Goal",
-    "daily_planner": "Daily Planner",
+    "daily_planner": "Today",
     "diary_card": "Diary Card",
     "skill_used": "Skill Used",
     "thought_record": "Thought Record",
@@ -33,6 +33,7 @@ ENTRY_TYPE_LABELS = {
 # Home Add tab labels (override ENTRY_TYPE_LABELS when present)
 HOME_ADD_LABELS = {
     "checkin": "Check-In",
+    "daily_planner": "Today",
 }
 
 DEFAULT_CATEGORY = "Emotion Regulation"

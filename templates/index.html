@@ -21,28 +21,45 @@
 <div class="space-y-8">
   <p class="text-sm text-zinc-600">{{ today_label }}</p>
 
-  {# Plan first: orientation for the day #}
-  <section aria-label="Daily planner">
+  <section aria-label="Today">
     {% if todays_daily_planner %}
     {% set plan = todays_daily_planner.payload or {} %}
+    {% set focus = daily_planner_focus(plan) %}
     <div class="rounded-lg border border-zinc-200 bg-white p-4 space-y-5">
       <div class="flex items-start justify-between gap-3">
-        <h2 class="text-sm font-medium text-zinc-800">Today's plan</h2>
-        <a href="{{ url_for('entry_edit', entry_id=todays_daily_planner.id) }}"
-           class="shrink-0 text-sm text-zinc-600 hover:text-zinc-900">Edit</a>
+        <h2 class="text-sm font-medium text-zinc-800">Today</h2>
+        <div class="flex shrink-0 items-center gap-3">
+          <a href="{{ url_for('entry_edit', entry_id=todays_daily_planner.id) }}"
+             class="text-sm text-zinc-600 hover:text-zinc-900">Edit</a>
+          <form method="post" action="{{ url_for('entry_delete', entry_id=todays_daily_planner.id) }}"
+            onsubmit="return confirm('Delete today? This cannot be undone.');">
+            <button type="submit" class="text-sm text-zinc-600 hover:text-zinc-900">Delete</button>
+          </form>
+        </div>
       </div>
 
-      {% if plan.intentions %}
+      {% if focus %}
       <div>
-        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">Intentions</h3>
-        <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ plan.intentions }}</p>
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">Focus</h3>
+        <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ focus }}</p>
       </div>
       {% endif %}
 
       {% if plan.committed_actions %}
-      <div{% if plan.intentions %} class="border-t border-zinc-100 pt-4"{% endif %}>
+      <div class="border-t border-zinc-100 pt-4">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">Committed actions</h3>
         <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ plan.committed_actions }}</p>
+      </div>
+      {% endif %}
+
+      {% if plan.noted_emotions %}
+      <div class="border-t border-zinc-100 pt-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Other emotions</h3>
+        <ul class="flex flex-wrap gap-2">
+          {% for e in plan.noted_emotions %}
+          <li class="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-sm text-zinc-800">{{ e.name }}</li>
+          {% endfor %}
+        </ul>
       </div>
       {% endif %}
 
@@ -59,43 +76,47 @@
         </ul>
       </div>
       {% endif %}
+
+      {% if daily_planner_has_diary(plan) %}
+      <div class="border-t border-zinc-100 pt-4 space-y-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Diary card</h3>
+
+        {% if plan.diary_emotions %}
+        <div>
+          <h4 class="text-sm font-medium text-zinc-800 mb-2">Emotions</h4>
+          <ul class="space-y-1 text-sm text-zinc-700">
+            {% for e in plan.diary_emotions %}
+            <li>{{ e.name }} — {{ e.intensity }}/5</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if plan.diary_urges %}
+        <div>
+          <h4 class="text-sm font-medium text-zinc-800 mb-2">Target behavior urges</h4>
+          <ul class="space-y-1 text-sm text-zinc-700">
+            {% for u in plan.diary_urges %}
+            <li>{{ u.behavior }} — {{ u.intensity }}/5</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if plan.diary_journal %}
+        <div>
+          <h4 class="text-sm font-medium text-zinc-800 mb-1">Journal</h4>
+          <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ plan.diary_journal }}</p>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
     </div>
     {% else %}
     <a href="{{ url_for('new_entry', entry_type='daily_planner') }}"
        class="block rounded-lg border border-dashed border-zinc-300 bg-white px-6 py-8 text-center hover:border-zinc-400">
-      <p class="font-medium text-zinc-900">Plan your day</p>
-      <p class="mt-1 text-sm text-zinc-600">Intentions, committed actions, and an optional hour-by-hour agenda.</p>
-    </a>
-    {% endif %}
-  </section>
-
-  {# Goal second: skill-focused practice target #}
-  <section aria-label="Daily goal">
-    {% if todays_daily_goal %}
-    {% set goal_payload = todays_daily_goal.payload or {} %}
-    <div class="rounded-lg border border-zinc-200 bg-white p-4">
-      <div class="mb-3 flex items-start justify-between gap-3">
-        <h2 class="text-sm font-medium text-zinc-800">Daily goal</h2>
-        <a href="{{ url_for('entry_edit', entry_id=todays_daily_goal.id) }}"
-           class="shrink-0 text-sm text-zinc-600 hover:text-zinc-900">Edit</a>
-      </div>
-      <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ goal_payload.goal }}</p>
-      {% if goal_payload.skills %}
-      <ul class="mt-4 space-y-1 border-t border-zinc-100 pt-4 text-sm text-zinc-700">
-        {% for s in goal_payload.skills %}
-        <li>
-          <span class="font-medium text-zinc-800">{{ skill_module_labels.get(s.module, s.module) }}:</span>
-          {{ s.skill }}
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-    </div>
-    {% else %}
-    <a href="{{ url_for('new_entry', entry_type='daily_goal') }}"
-       class="block rounded-lg border border-dashed border-zinc-300 bg-white px-6 py-6 text-center hover:border-zinc-400">
-      <p class="font-medium text-zinc-900">Set today's goal</p>
-      <p class="mt-1 text-sm text-zinc-600">A skills-focused focus for practice.</p>
+      <p class="font-medium text-zinc-900">Start today</p>
+      <p class="mt-1 text-sm text-zinc-600">Set your focus, note emotions, and optionally fill a diary card.</p>
     </a>
     {% endif %}
   </section>

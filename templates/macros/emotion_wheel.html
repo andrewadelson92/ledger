@@ -1,4 +1,4 @@
-{% macro emotion_wheel_picker(wheel, hidden_input_name, initial_emotions=[], intensity_key='intensity', max_intensity=5, start_empty=false, add_label='Add emotion', mirror_from=none, show_picker_hint=true, show_intensity=true) %}
+{% macro emotion_wheel_picker(wheel, hidden_input_name, initial_emotions=[], intensity_key='intensity', max_intensity=5, start_empty=false, add_label='Add emotion', mirror_from=none, show_picker_hint=true, show_intensity=true, exclude_emotions=[]) %}
 <div class="emotion-picker"
   data-hidden-name="{{ hidden_input_name }}"
   data-intensity-key="{{ intensity_key }}"
@@ -24,6 +24,7 @@
 
   <input type="hidden" name="{{ hidden_input_name }}" id="{{ hidden_input_name }}" value="">
   <script type="application/json" class="emotion-wheel-data">{{ wheel|tojson }}</script>
+  <script type="application/json" class="emotion-exclude-data">{{ exclude_emotions|default([], true)|tojson }}</script>
 </div>
 
 <script>
@@ -48,6 +49,17 @@
   try {
     wheel = JSON.parse(container.querySelector('.emotion-wheel-data').textContent);
   } catch (e) {}
+
+  let excludedEmotions = {};
+  try {
+    JSON.parse(container.querySelector('.emotion-exclude-data').textContent || '[]').forEach(function(name) {
+      if (name) excludedEmotions[String(name).toLowerCase()] = true;
+    });
+  } catch (e) {}
+
+  function isExcludedEmotion(name) {
+    return !!excludedEmotions[(name || '').trim().toLowerCase()];
+  }
 
   let rows = [];
   try {
@@ -133,10 +145,12 @@
   function getCatalog() {
     const catalog = [];
     loadSaved().forEach(function(name) {
+      if (isExcludedEmotion(name)) return;
       catalog.push({ name: name, family: 'Saved', source: 'saved' });
     });
     Object.keys(wheel).forEach(function(family) {
       (wheel[family] || []).forEach(function(name) {
+        if (isExcludedEmotion(name)) return;
         catalog.push({ name: name, family: family, source: 'builtin' });
       });
     });
@@ -465,7 +479,7 @@
 
   function selectEmotion(index, name) {
     const trimmed = (name || '').trim();
-    if (!trimmed) return;
+    if (!trimmed || isExcludedEmotion(trimmed)) return;
     const taken = usedNames(index);
     if (taken.indexOf(trimmed.toLowerCase()) !== -1) return;
     rows[index].name = trimmed;

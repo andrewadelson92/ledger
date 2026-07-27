@@ -12,6 +12,7 @@ from constants import (
     DIARY_CARD_EMOTIONS,
     BEHAVIORAL_ACTIVATION_EMOTIONS,
     DAILY_PLANNER_HOURS,
+    EMOTION_WHEEL,
 )
 
 
@@ -126,17 +127,18 @@ def entry_summary(entry) -> str:
         return goal or "Daily goal"
 
     if t == "daily_planner":
-        intentions = _truncate(p.get("intentions"), 50)
-        actions = p.get("committed_actions") or ""
-        agenda = p.get("agenda") or []
+        focus = _truncate(p.get("focus") or p.get("intentions"), 50)
+        noted = p.get("noted_emotions") or []
+        diary_emotions = p.get("diary_emotions") or []
+        urges = p.get("diary_urges") or []
         parts = []
-        if intentions:
-            parts.append(intentions)
-        if actions.strip():
-            parts.append("actions")
-        if agenda:
-            parts.append(f"{len(agenda)} hour{'s' if len(agenda) != 1 else ''}")
-        return " · ".join(parts) if parts else "Daily planner"
+        if focus:
+            parts.append(focus)
+        if noted:
+            parts.append(f"{len(noted)} noted")
+        if diary_emotions or urges:
+            parts.append("diary")
+        return " · ".join(parts) if parts else "Today"
 
     if t == "diary_card":
         emotions = p.get("emotions") or []
@@ -285,6 +287,60 @@ def diary_card_extra_emotions(emotions: list | None = None) -> list[dict]:
 
 def diary_emotion_field_name(emotion: str) -> str:
     return "diary_emotion_" + emotion.lower().replace(" ", "_")
+
+
+def emotion_wheel_excluding(exclude_names: list[str] | None = None) -> dict:
+    """Return emotion wheel with the given names removed (case-insensitive)."""
+    excluded = {n.lower() for n in (exclude_names or [])}
+    filtered = {}
+    for family, names in EMOTION_WHEEL.items():
+        kept = [n for n in names if n.lower() not in excluded]
+        if kept:
+            filtered[family] = kept
+    return filtered
+
+
+def daily_planner_focus(payload: dict | None = None) -> str:
+    p = payload or {}
+    return (p.get("focus") or p.get("intentions") or "").strip()
+
+
+def daily_planner_has_diary(payload: dict | None = None) -> bool:
+    p = payload or {}
+    return bool(
+        p.get("diary_emotions")
+        or p.get("diary_urges")
+        or (p.get("diary_journal") or "").strip()
+    )
+
+
+def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict], str]:
+    """Parse optional diary-card fields; return empty if the section was unused."""
+    emotions = parse_diary_card_emotions(form)
+    urges = parse_urges_json(form.get("urges_json"))
+    journal = (form.get("text") or "").strip()
+    fixed = {name.lower() for name in DIARY_CARD_EMOTIONS}
+    extras = [
+        e for e in emotions
+        if isinstance(e, dict) and (e.get("name") or "").strip().lower() not in fixed
+    ]
+    fixed_changed = False
+    for e in emotions:
+        if not isinstance(e, dict):
+            continue
+        name = (e.get("name") or "").strip().lower()
+        if name not in fixed:
+            continue
+        try:
+            if int(e.get("intensity", 3)) != 3:
+                fixed_changed = True
+                break
+        except (TypeError, ValueError):
+            fixed_changed = True
+            break
+    if not urges and not journal and not extras and not fixed_changed:
+        return [], [], ""
+    return emotions, urges, journal
 
 
 def parse_diary_card_emotions(form) -> list[dict]:
@@ -446,10 +502,18 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         }
 
     elif entry_type == "daily_planner":
+        diary_emotions, diary_urges, diary_journal = parse_embedded_diary_card(form)
         payload = {
-            "intentions": (form.get("intentions") or "").strip(),
+            "focus": (form.get("focus") or form.get("intentions") or "").strip(),
             "committed_actions": (form.get("committed_actions") or "").strip(),
             "agenda": parse_agenda_slots(form),
+            "noted_emotions": parse_emotions_json(
+                form.get("noted_emotions_json"),
+                include_intensity=False,
+            ),
+            "diary_emotions": diary_emotions,
+            "diary_urges": diary_urges,
+            "diary_journal": diary_journal,
         }
 
     elif entry_type == "diary_card":
@@ -717,7 +781,10 @@ def merge_exposure_outcome(existing: dict, form) -> dict:
     return payload
 
 
-def entry_in_progress_can_delete(entry) -> bool:
+def entry_can_delete(entry) -> bool:
+    """True when the entry may be removed from the UI (Today, legacy goal, or in-progress)."""
+    if entry.type in ("daily_planner", "daily_goal"):
+        return True
     p = entry.payload or {}
     if entry.type == "behavioral_activation":
         return behavioral_activation_needs_outcome(p)
@@ -726,6 +793,10 @@ def entry_in_progress_can_delete(entry) -> bool:
     if entry.type == "opposite_action":
         return opposite_action_needs_outcome(p)
     return False
+
+
+# Back-compat alias
+entry_in_progress_can_delete = entry_can_delete
 
 
 def format_datetime_local(iso_value: str | None) -> str:
