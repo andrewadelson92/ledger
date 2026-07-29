@@ -9,7 +9,7 @@ Single-user, no auth. Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL
 | Type | Description |
 |------|-------------|
 | Emotion Check-In | Quick emotion + intensity log |
-| Today | Focus, noted emotions, optional diary card + agenda |
+| Today | Focus, diary card, noted emotions, optional agenda |
 | Diary Card | Legacy; diary is now part of Today |
 | Skill Used | DBT module + skill |
 | Thought Record | Before/after emotions with reframing fields |

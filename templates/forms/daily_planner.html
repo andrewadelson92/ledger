@@ -7,9 +7,8 @@
 
 {% block content %}
 {% set focus_text = payload.focus or payload.intentions or '' %}
-{% set has_diary = (payload.diary_emotions or payload.diary_urges or payload.diary_journal) %}
 <h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
-<p class="text-sm text-zinc-600 mb-6">Set your focus for the day, note any other emotions, and optionally complete a diary card.</p>
+<p class="text-sm text-zinc-600 mb-6">Set your focus for the day, complete your diary card, and note any other emotions.</p>
 
 <form method="post"
   action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
@@ -25,6 +24,51 @@
     {{ field_label('Committed actions') }}
     {{ text_input('committed_actions', payload.committed_actions or '', rows=6, placeholder='Concrete actions you are committing to today…') }}
   </div>
+
+  <section class="space-y-6">
+    <div>
+      <h2 class="text-sm font-medium text-zinc-800 mb-1">Diary card</h2>
+      <p class="text-sm text-zinc-600">Rate fixed emotions and target behavior urges (1–5). Add a journal note if helpful.</p>
+    </div>
+
+    <div>
+      <h3 class="text-sm font-medium text-zinc-800 mb-3">Emotions</h3>
+      <ul class="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+        {% for name, intensity in diary_card_emotion_values(payload.diary_emotions) %}
+        <li class="flex items-center gap-3">
+          <span class="text-sm font-medium text-zinc-800 w-28 shrink-0">{{ name }}</span>
+          <input type="range" min="1" max="5" value="{{ intensity }}"
+            name="{{ diary_emotion_field_name(name) }}"
+            class="flex-1 accent-zinc-900 diary-fixed-intensity"
+            aria-label="{{ name }} intensity">
+          <span class="text-sm text-zinc-600 w-6 text-center intensity-val">{{ intensity }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+
+      <div class="mt-4">
+        <h4 class="text-sm font-medium text-zinc-800 mb-2">Additional emotions</h4>
+        {{ emotion_wheel_picker(
+          emotion_wheel,
+          'extra_emotions_json',
+          diary_extra_emotions,
+          'intensity',
+          5,
+          start_empty=true,
+          add_label='Add another emotion',
+          show_picker_hint=false
+        ) }}
+      </div>
+    </div>
+
+    <div>
+      {{ target_behavior_urges(payload.diary_urges or [], default_target_behaviors) }}
+    </div>
+
+    <div>
+      {{ journal_fields({'text': payload.diary_journal or ''}, false, 6, 'Journal Entry (optional)') }}
+    </div>
+  </section>
 
   <div>
     <h2 class="text-sm font-medium text-zinc-800 mb-1">Other emotions to note</h2>
@@ -58,54 +102,6 @@
           placeholder="Optional">{{ slot.plan }}</textarea>
       </div>
       {% endfor %}
-    </div>
-  </details>
-
-  <details class="rounded-lg border border-zinc-200 bg-white p-4"
-    {% if has_diary %}open{% endif %}>
-    <summary class="cursor-pointer text-sm font-medium text-zinc-800 marker:text-zinc-500">
-      Diary card (optional)
-    </summary>
-    <p class="mt-2 text-sm text-zinc-600">Rate fixed emotions and target behavior urges (1–5). Add a journal note if helpful.</p>
-
-    <div class="mt-4 space-y-8 border-t border-zinc-100 pt-4">
-      <section>
-        <h3 class="text-sm font-medium text-zinc-800 mb-3">Emotions</h3>
-        <ul class="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          {% for name, intensity in diary_card_emotion_values(payload.diary_emotions) %}
-          <li class="flex items-center gap-3">
-            <span class="text-sm font-medium text-zinc-800 w-28 shrink-0">{{ name }}</span>
-            <input type="range" min="1" max="5" value="{{ intensity }}"
-              name="{{ diary_emotion_field_name(name) }}"
-              class="flex-1 accent-zinc-900 diary-fixed-intensity"
-              aria-label="{{ name }} intensity">
-            <span class="text-sm text-zinc-600 w-6 text-center intensity-val">{{ intensity }}</span>
-          </li>
-          {% endfor %}
-        </ul>
-
-        <div class="mt-4">
-          <h4 class="text-sm font-medium text-zinc-800 mb-2">Additional emotions</h4>
-          {{ emotion_wheel_picker(
-            emotion_wheel,
-            'extra_emotions_json',
-            diary_extra_emotions,
-            'intensity',
-            5,
-            start_empty=true,
-            add_label='Add another emotion',
-            show_picker_hint=false
-          ) }}
-        </div>
-      </section>
-
-      <section>
-        {{ target_behavior_urges(payload.diary_urges or [], default_target_behaviors) }}
-      </section>
-
-      <section>
-        {{ journal_fields({'text': payload.diary_journal or ''}, false, 6, 'Journal Entry (optional)') }}
-      </section>
     </div>
   </details>
 
