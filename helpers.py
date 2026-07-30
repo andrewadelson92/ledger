@@ -310,6 +310,7 @@ def daily_planner_has_diary(payload: dict | None = None) -> bool:
     return bool(
         p.get("diary_emotions")
         or p.get("diary_urges")
+        or p.get("noted_emotions")
         or (p.get("diary_journal") or "").strip()
     )
 

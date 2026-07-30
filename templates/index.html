@@ -96,17 +96,6 @@
       </div>
       {% endif %}
 
-      {% if plan.noted_emotions %}
-      <div class="border-t border-zinc-100 pt-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Other emotions</h3>
-        <ul class="flex flex-wrap gap-2">
-          {% for e in plan.noted_emotions %}
-          <li class="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-sm text-zinc-800">{{ e.name }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endif %}
-
       {% if plan.agenda %}
       <div class="border-t border-zinc-100 pt-4">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-3">Agenda</h3>
@@ -131,6 +120,17 @@
           <ul class="space-y-1 text-sm text-zinc-700">
             {% for e in plan.diary_emotions %}
             <li>{{ e.name }} — {{ e.intensity }}/5</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if plan.noted_emotions %}
+        <div{% if plan.diary_emotions %} class="pt-1"{% endif %}>
+          <h4 class="text-sm font-medium text-zinc-800 mb-2">Other emotions</h4>
+          <ul class="flex flex-wrap gap-2">
+            {% for e in plan.noted_emotions %}
+            <li class="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-sm text-zinc-800">{{ e.name }}</li>
             {% endfor %}
           </ul>
         </div>
