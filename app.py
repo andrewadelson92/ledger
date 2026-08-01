@@ -295,12 +295,20 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         **extra,
     }
     if entry_type == "daily_planner":
-        ctx["agenda_slots"] = agenda_slots_for_form(ctx["payload"])
+        payload = dict(ctx["payload"])
+        # Fold legacy intensity extras into noted emotions (Today only tracks names).
+        noted = list(payload.get("noted_emotions") or [])
+        seen = {(e.get("name") or "").strip().lower() for e in noted if isinstance(e, dict)}
+        for extra_e in diary_card_extra_emotions(payload.get("diary_emotions")):
+            name = (extra_e.get("name") or "").strip()
+            if name and name.lower() not in seen:
+                noted.append({"name": name})
+                seen.add(name.lower())
+        payload["noted_emotions"] = noted
+        ctx["payload"] = payload
+        ctx["agenda_slots"] = agenda_slots_for_form(payload)
         ctx["noted_emotion_wheel"] = emotion_wheel_excluding(DIARY_CARD_EMOTIONS)
         ctx["diary_card_emotions"] = DIARY_CARD_EMOTIONS
-        ctx["diary_extra_emotions"] = diary_card_extra_emotions(
-            ctx["payload"].get("diary_emotions")
-        )
     if entry_type == "diary_card":
         ctx["extra_emotions"] = diary_card_extra_emotions(ctx["payload"].get("emotions"))
         if form is not None:
