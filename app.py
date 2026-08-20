@@ -471,9 +471,9 @@ def new_entry(entry_type):
             flash("Today saved.")
             return redirect(url_for("index", tab="today"))
         if entry_type == "mantras":
-            _save_mantras(payload)
+            entry = _save_mantras(payload)
             flash("Mantras saved.")
-            return redirect(url_for("index", tab="today"))
+            return redirect(url_for("entry_detail", entry_id=entry.id))
         entry = Entry(
             type=entry_type,
             payload=payload,
@@ -497,7 +497,7 @@ def new_entry(entry_type):
     if entry_type == "mantras":
         existing = _current_mantras()
         if existing:
-            return redirect(url_for("entry_edit", entry_id=existing.id))
+            return redirect(url_for("entry_detail", entry_id=existing.id))
 
     return render_template(
         f"forms/{entry_type}.html",
@@ -750,7 +750,7 @@ def entry_edit(entry_id):
             sync_diary_card_journal(entry, request.form)
         db.session.commit()
         flash("Entry updated.")
-        if entry.type in ("daily_goal", "daily_planner", "mantras"):
+        if entry.type in ("daily_goal", "daily_planner"):
             return redirect(url_for("index", tab="today"))
         return redirect(url_for("entry_detail", entry_id=entry.id))
 
