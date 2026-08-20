@@ -57,6 +57,7 @@ from helpers import (
     daily_planner_focus,
     daily_planner_has_diary,
     diary_card_extra_emotions,
+    highlighted_mantras,
 )
 
 ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card"})
@@ -214,6 +215,7 @@ def index():
         if t not in ADD_HIDDEN_TYPES
     ]
     today_label = datetime.now(LOCAL_TZ).strftime("%A, %b %d")
+    mantras_entry = _current_mantras()
     return render_template(
         "index.html",
         cards=cards,
@@ -221,6 +223,10 @@ def index():
         add_options=add_options,
         in_progress_items=in_progress_items,
         todays_daily_planner=_todays_daily_planner(),
+        highlighted_mantras=highlighted_mantras(
+            mantras_entry.payload if mantras_entry else None
+        ),
+        mantras_entry=mantras_entry,
         today_label=today_label,
         daily_planner_focus=daily_planner_focus,
         daily_planner_has_diary=daily_planner_has_diary,
@@ -261,6 +267,19 @@ def _todays_daily_planner():
     return find_todays_entry(candidates, "daily_planner", LOCAL_TZ)
 
 
+def _current_mantras():
+    """Return the single mantras library entry (most recent), if any.
+
+    Stored as an Entry so future multi-user scoping can use the same table
+    (e.g. filter by user_id) without a separate localStorage catalog.
+    """
+    return (
+        Entry.query.filter_by(type="mantras")
+        .order_by(Entry.updated_at.desc(), Entry.created_at.desc())
+        .first()
+    )
+
+
 def _save_daily_goal(payload: dict) -> Entry:
     existing = _todays_daily_goal()
     if existing:
@@ -282,6 +301,19 @@ def _save_daily_planner(payload: dict) -> Entry:
         db.session.commit()
         return existing
     entry = Entry(type="daily_planner", payload=payload)
+    db.session.add(entry)
+    db.session.commit()
+    return entry
+
+
+def _save_mantras(payload: dict) -> Entry:
+    existing = _current_mantras()
+    if existing:
+        existing.payload = payload
+        _touch_entry(existing)
+        db.session.commit()
+        return existing
+    entry = Entry(type="mantras", payload=payload)
     db.session.add(entry)
     db.session.commit()
     return entry
@@ -438,6 +470,10 @@ def new_entry(entry_type):
             _save_daily_planner(payload)
             flash("Today saved.")
             return redirect(url_for("index", tab="today"))
+        if entry_type == "mantras":
+            _save_mantras(payload)
+            flash("Mantras saved.")
+            return redirect(url_for("index", tab="today"))
         entry = Entry(
             type=entry_type,
             payload=payload,
@@ -455,6 +491,11 @@ def new_entry(entry_type):
 
     if entry_type == "daily_planner":
         existing = _todays_daily_planner()
+        if existing:
+            return redirect(url_for("entry_edit", entry_id=existing.id))
+
+    if entry_type == "mantras":
+        existing = _current_mantras()
         if existing:
             return redirect(url_for("entry_edit", entry_id=existing.id))
 
@@ -709,7 +750,7 @@ def entry_edit(entry_id):
             sync_diary_card_journal(entry, request.form)
         db.session.commit()
         flash("Entry updated.")
-        if entry.type in ("daily_goal", "daily_planner"):
+        if entry.type in ("daily_goal", "daily_planner", "mantras"):
             return redirect(url_for("index", tab="today"))
         return redirect(url_for("entry_detail", entry_id=entry.id))
 

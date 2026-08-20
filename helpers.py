@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -159,6 +160,15 @@ def entry_summary(entry) -> str:
     if t == "thought_record":
         return _truncate(p.get("automatic_thought") or p.get("situation")) or "Thought record"
 
+    if t == "mantras":
+        items = p.get("items") or []
+        highlighted = sum(1 for i in items if isinstance(i, dict) and i.get("highlighted"))
+        n = len(items)
+        base = f"{n} mantra{'s' if n != 1 else ''}"
+        if highlighted:
+            return f"{base} · {highlighted} on Today"
+        return base or "Mantras"
+
     if t == "opposite_action":
         return _truncate(p.get("opposite_action") or p.get("action_urge")) or "Opposite action"
 
@@ -313,6 +323,45 @@ def daily_planner_has_diary(payload: dict | None = None) -> bool:
         or p.get("noted_emotions")
         or (p.get("diary_journal") or "").strip()
     )
+
+
+def parse_mantras_json(raw) -> list[dict]:
+    """Parse mantras library items from form JSON. Server-persisted; no localStorage."""
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    out = []
+    seen_ids = set()
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        text = (item.get("text") or "").strip()
+        if not text:
+            continue
+        raw_id = (item.get("id") or "").strip()
+        item_id = raw_id if raw_id and raw_id not in seen_ids else str(uuid.uuid4())
+        seen_ids.add(item_id)
+        out.append({
+            "id": item_id,
+            "text": text,
+            "highlighted": bool(item.get("highlighted")),
+        })
+    return out
+
+
+def highlighted_mantras(payload: dict | None = None) -> list[dict]:
+    """Return highlighted mantra items for the Today home card."""
+    items = (payload or {}).get("items") or []
+    return [
+        {"id": i.get("id"), "text": (i.get("text") or "").strip()}
+        for i in items
+        if isinstance(i, dict) and i.get("highlighted") and (i.get("text") or "").strip()
+    ]
 
 
 def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict], str]:
@@ -542,6 +591,11 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "evidence_against": (form.get("evidence_against") or "").strip(),
             "alternative_thought": (form.get("alternative_thought") or "").strip(),
             "emotions_after": parse_emotions_json(form.get("emotions_after_json"), "intensity_after"),
+        }
+
+    elif entry_type == "mantras":
+        payload = {
+            "items": parse_mantras_json(form.get("mantras_json")),
         }
 
     elif entry_type == "opposite_action":
@@ -783,8 +837,8 @@ def merge_exposure_outcome(existing: dict, form) -> dict:
 
 
 def entry_can_delete(entry) -> bool:
-    """True when the entry may be removed from the UI (Today, legacy goal, or in-progress)."""
-    if entry.type in ("daily_planner", "daily_goal"):
+    """True when the entry may be removed from the UI (Today, mantras library, or in-progress)."""
+    if entry.type in ("daily_planner", "daily_goal", "mantras"):
         return True
     p = entry.payload or {}
     if entry.type == "behavioral_activation":

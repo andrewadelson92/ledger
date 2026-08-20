@@ -2,7 +2,9 @@
 
 A personal DBT/CBT skills practice log — a calm, minimal companion to [Long Track](https://github.com/andrewadelson92/long_track). Log emotions, skills, diary cards, thought records, behavioral activation, exposure work, chain analyses, and journal entries in one place.
 
-Single-user, no auth. Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL on Railway.
+Single-user, no auth yet. Entry data (including Mantras) is stored in the database so it can be scoped per user later. Browser localStorage is only used for picker catalogs (custom skills, emotions, target behaviors).
+
+Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL on Railway.
 
 ## Entry types
 
@@ -13,6 +15,7 @@ Single-user, no auth. Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL
 | Diary Card | Legacy; diary is now part of Today |
 | Skill Used | DBT module + skill |
 | Thought Record | Before/after emotions with reframing fields |
+| Mantras | Personal mantra list; highlight any to show on Today |
 | Opposite Action | Emotion + urge, fit-the-facts check, opposite action, before/after emotions |
 | ABC Worksheet | Activating event, belief, consequence |
 | Behavioral Activation | Two-step: plan joy/sadness levels → complete after activity |
