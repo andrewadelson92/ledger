@@ -1,0 +1,40 @@
+---
+description: Ledger UI must be grayscale only — no accent or semantic colors
+globs: templates/**/*
+alwaysApply: true
+---
+
+# Grayscale UI
+
+Ledger is a calm, minimal practice log. All UI must be **grayscale only**.
+
+## Allowed palette
+
+Use Tailwind `zinc` (and neutral structural tokens like `white`, `black`, `transparent`):
+
+- Backgrounds: `bg-zinc-50`, `bg-white`, `bg-zinc-100`
+- Text: `text-zinc-900`, `text-zinc-800`, `text-zinc-700`, `text-zinc-600`, `text-zinc-500`, `text-zinc-400`
+- Borders: `border-zinc-200`, `border-zinc-300`
+- Interactive / emphasis: `bg-zinc-900`, `hover:bg-zinc-800`, `ring-zinc-900`
+
+## Do not use
+
+No semantic or accent color scales in templates or inline JS class strings:
+
+- `red`, `green`, `emerald`, `blue`, `amber`, `yellow`, `orange`, `purple`, `pink`, `indigo`, `cyan`, `teal`, `rose`, `violet`, `lime`, `sky`, `fuchsia`
+
+This includes flash messages, outcome panels, linked-entry callouts, required-field markers, and delete/remove buttons.
+
+## Examples
+
+```html
+<!-- BAD -->
+<div class="border-emerald-200 bg-emerald-50 text-emerald-900">...</div>
+<span class="text-red-600">*</span>
+
+<!-- GOOD -->
+<div class="border-zinc-200 bg-zinc-100 text-zinc-900">...</div>
+<span class="text-zinc-500">*</span>
+```
+
+Use weight, border, and background contrast — not hue — to distinguish sections.

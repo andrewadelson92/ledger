@@ -83,6 +83,13 @@ def agenda_slots_for_form(payload: dict | None = None) -> list[dict]:
 def entry_log_label(entry) -> str:
     label = type_label(entry.type)
     p = entry.payload or {}
+    if entry.type == "mantra_event":
+        action = (p.get("action") or "").strip()
+        return {
+            "add": "Mantra added",
+            "invoke": "Mantra invoked",
+            "delete": "Mantra deleted",
+        }.get(action, "Mantra")
     if entry.type == "behavioral_activation" and behavioral_activation_needs_outcome(p):
         return f"{label} · In progress"
     if entry.type == "exposure_plan" and exposure_needs_outcome(p):
@@ -162,12 +169,16 @@ def entry_summary(entry) -> str:
 
     if t == "mantras":
         items = p.get("items") or []
-        highlighted = sum(1 for i in items if isinstance(i, dict) and i.get("highlighted"))
         n = len(items)
-        base = f"{n} mantra{'s' if n != 1 else ''}"
-        if highlighted:
-            return f"{base} · {highlighted} on Today"
-        return base or "Mantras"
+        return f"{n} mantra{'s' if n != 1 else ''}"
+
+    if t == "mantra_event":
+        text = _truncate(p.get("text"), 60)
+        action = (p.get("action") or "").strip()
+        verb = {"add": "Added", "invoke": "Invoked", "delete": "Deleted"}.get(action, "Mantra")
+        if text:
+            return f"{verb}: {text}"
+        return verb
 
     if t == "opposite_action":
         return _truncate(p.get("opposite_action") or p.get("action_urge")) or "Opposite action"
@@ -346,22 +357,50 @@ def parse_mantras_json(raw) -> list[dict]:
         raw_id = (item.get("id") or "").strip()
         item_id = raw_id if raw_id and raw_id not in seen_ids else str(uuid.uuid4())
         seen_ids.add(item_id)
-        out.append({
-            "id": item_id,
-            "text": text,
-            "highlighted": bool(item.get("highlighted")),
-        })
+        out.append({"id": item_id, "text": text})
     return out
 
 
-def highlighted_mantras(payload: dict | None = None) -> list[dict]:
-    """Return highlighted mantra items for the Today home card."""
-    items = (payload or {}).get("items") or []
-    return [
-        {"id": i.get("id"), "text": (i.get("text") or "").strip()}
-        for i in items
-        if isinstance(i, dict) and i.get("highlighted") and (i.get("text") or "").strip()
-    ]
+def mantra_library_items(payload: dict | None = None) -> list[dict]:
+    """Normalize library items (drops legacy highlighted flags)."""
+    out = []
+    seen = set()
+    for item in (payload or {}).get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        text = (item.get("text") or "").strip()
+        if not text:
+            continue
+        raw_id = (item.get("id") or "").strip() or str(uuid.uuid4())
+        if raw_id in seen:
+            continue
+        seen.add(raw_id)
+        out.append({"id": raw_id, "text": text})
+    return out
+
+
+def todays_invoked_mantras(entries, tz: ZoneInfo, today=None) -> list[dict]:
+    """Mantras invoked on the local calendar day (unique by mantra_id, newest first)."""
+    today = today or datetime.now(tz).date()
+    seen = set()
+    out = []
+    for entry in entries:
+        if entry.type != "mantra_event":
+            continue
+        p = entry.payload or {}
+        if (p.get("action") or "").strip() != "invoke":
+            continue
+        if entry_local_date(entry.created_at, tz) != today:
+            continue
+        text = (p.get("text") or "").strip()
+        if not text:
+            continue
+        mid = (p.get("mantra_id") or "").strip() or text.lower()
+        if mid in seen:
+            continue
+        seen.add(mid)
+        out.append({"id": mid, "text": text})
+    return out
 
 
 def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict], str]:
@@ -837,8 +876,8 @@ def merge_exposure_outcome(existing: dict, form) -> dict:
 
 
 def entry_can_delete(entry) -> bool:
-    """True when the entry may be removed from the UI (Today, mantras library, or in-progress)."""
-    if entry.type in ("daily_planner", "daily_goal", "mantras"):
+    """True when the entry may be removed from the UI (Today, legacy goal, or in-progress)."""
+    if entry.type in ("daily_planner", "daily_goal"):
         return True
     p = entry.payload or {}
     if entry.type == "behavioral_activation":

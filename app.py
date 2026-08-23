@@ -3,6 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import os
 import sys
+import uuid
 
 from db import db
 from config import load_config
@@ -57,10 +58,11 @@ from helpers import (
     daily_planner_focus,
     daily_planner_has_diary,
     diary_card_extra_emotions,
-    highlighted_mantras,
+    mantra_library_items,
+    todays_invoked_mantras,
 )
 
-ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card"})
+ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card", "mantra_event"})
 
 _app_root = os.path.dirname(os.path.abspath(__file__))
 
@@ -187,6 +189,7 @@ def index():
             "label": entry_log_label(e),
         }
         for e in entries
+        if e.type != "mantras"  # library doc; actions log as mantra_event
     ]
     in_progress_items = []
     for e in entries:
@@ -215,7 +218,6 @@ def index():
         if t not in ADD_HIDDEN_TYPES
     ]
     today_label = datetime.now(LOCAL_TZ).strftime("%A, %b %d")
-    mantras_entry = _current_mantras()
     return render_template(
         "index.html",
         cards=cards,
@@ -223,10 +225,7 @@ def index():
         add_options=add_options,
         in_progress_items=in_progress_items,
         todays_daily_planner=_todays_daily_planner(),
-        highlighted_mantras=highlighted_mantras(
-            mantras_entry.payload if mantras_entry else None
-        ),
-        mantras_entry=mantras_entry,
+        invoked_mantras=todays_invoked_mantras(entries, LOCAL_TZ),
         today_label=today_label,
         daily_planner_focus=daily_planner_focus,
         daily_planner_has_diary=daily_planner_has_diary,
@@ -280,6 +279,37 @@ def _current_mantras():
     )
 
 
+def _ensure_mantras_library() -> Entry:
+    existing = _current_mantras()
+    if existing:
+        # Normalize legacy highlighted items out of the stored payload.
+        items = mantra_library_items(existing.payload)
+        if items != (existing.payload or {}).get("items"):
+            existing.payload = {"items": items}
+            _touch_entry(existing)
+            db.session.commit()
+        return existing
+    entry = Entry(type="mantras", payload={"items": []})
+    db.session.add(entry)
+    db.session.commit()
+    return entry
+
+
+def _log_mantra_event(action: str, mantra_id: str, text: str, journal: str = "") -> Entry:
+    entry = Entry(
+        type="mantra_event",
+        payload={
+            "action": action,
+            "mantra_id": mantra_id,
+            "text": text,
+            "journal": (journal or "").strip(),
+        },
+    )
+    db.session.add(entry)
+    db.session.commit()
+    return entry
+
+
 def _save_daily_goal(payload: dict) -> Entry:
     existing = _todays_daily_goal()
     if existing:
@@ -301,19 +331,6 @@ def _save_daily_planner(payload: dict) -> Entry:
         db.session.commit()
         return existing
     entry = Entry(type="daily_planner", payload=payload)
-    db.session.add(entry)
-    db.session.commit()
-    return entry
-
-
-def _save_mantras(payload: dict) -> Entry:
-    existing = _current_mantras()
-    if existing:
-        existing.payload = payload
-        _touch_entry(existing)
-        db.session.commit()
-        return existing
-    entry = Entry(type="mantras", payload=payload)
     db.session.add(entry)
     db.session.commit()
     return entry
@@ -470,10 +487,6 @@ def new_entry(entry_type):
             _save_daily_planner(payload)
             flash("Today saved.")
             return redirect(url_for("index", tab="today"))
-        if entry_type == "mantras":
-            entry = _save_mantras(payload)
-            flash("Mantras saved.")
-            return redirect(url_for("entry_detail", entry_id=entry.id))
         entry = Entry(
             type=entry_type,
             payload=payload,
@@ -495,9 +508,7 @@ def new_entry(entry_type):
             return redirect(url_for("entry_edit", entry_id=existing.id))
 
     if entry_type == "mantras":
-        existing = _current_mantras()
-        if existing:
-            return redirect(url_for("entry_detail", entry_id=existing.id))
+        return redirect(url_for("mantras_hub"))
 
     return render_template(
         f"forms/{entry_type}.html",
@@ -510,9 +521,81 @@ def new_entry(entry_type):
     )
 
 
+@app.route("/mantras")
+def mantras_hub():
+    library = _ensure_mantras_library()
+    items = mantra_library_items(library.payload)
+    invoked_ids = {
+        m["id"] for m in todays_invoked_mantras(
+            Entry.query.filter_by(type="mantra_event")
+            .order_by(Entry.created_at.desc())
+            .all(),
+            LOCAL_TZ,
+        )
+    }
+    return render_template(
+        "mantras.html",
+        items=items,
+        invoked_ids=invoked_ids,
+    )
+
+
+@app.route("/mantras/add", methods=["POST"])
+def mantras_add():
+    text = (request.form.get("text") or "").strip()
+    journal = (request.form.get("journal") or "").strip()
+    if not text:
+        flash("Mantra text is required.")
+        return redirect(url_for("mantras_hub"))
+    library = _ensure_mantras_library()
+    items = mantra_library_items(library.payload)
+    mantra_id = str(uuid.uuid4())
+    items.append({"id": mantra_id, "text": text})
+    library.payload = {"items": items}
+    _touch_entry(library)
+    db.session.commit()
+    event = _log_mantra_event("add", mantra_id, text, journal)
+    flash("Mantra added.")
+    return redirect(url_for("entry_detail", entry_id=event.id))
+
+
+@app.route("/mantras/invoke", methods=["POST"])
+def mantras_invoke():
+    mantra_id = (request.form.get("mantra_id") or "").strip()
+    journal = (request.form.get("journal") or "").strip()
+    library = _ensure_mantras_library()
+    items = mantra_library_items(library.payload)
+    match = next((i for i in items if i["id"] == mantra_id), None)
+    if not match:
+        flash("Mantra not found.")
+        return redirect(url_for("mantras_hub"))
+    event = _log_mantra_event("invoke", match["id"], match["text"], journal)
+    flash("Mantra invoked for today.")
+    return redirect(url_for("entry_detail", entry_id=event.id))
+
+
+@app.route("/mantras/delete", methods=["POST"])
+def mantras_delete():
+    mantra_id = (request.form.get("mantra_id") or "").strip()
+    library = _ensure_mantras_library()
+    items = mantra_library_items(library.payload)
+    match = next((i for i in items if i["id"] == mantra_id), None)
+    if not match:
+        flash("Mantra not found.")
+        return redirect(url_for("mantras_hub"))
+    library.payload = {"items": [i for i in items if i["id"] != mantra_id]}
+    _touch_entry(library)
+    db.session.commit()
+    event = _log_mantra_event("delete", match["id"], match["text"], "")
+    flash("Mantra deleted.")
+    return redirect(url_for("entry_detail", entry_id=event.id))
+
+
 @app.route("/entry/<int:entry_id>")
 def entry_detail(entry_id):
     entry = _get_entry_or_404(entry_id)
+    if entry.type == "mantras":
+        return redirect(url_for("mantras_hub"))
     linked_plan = None
     linked_journal = None
     linked_diary_card = None
@@ -548,7 +631,7 @@ def entry_detail(entry_id):
         needs_exposure_outcome=needs_exposure_outcome,
         needs_opposite_action_outcome=needs_opposite_action_outcome,
         summary=entry_summary(entry),
-        label=type_label(entry.type),
+        label=entry_log_label(entry),
         ba_emotions=behavioral_activation_emotion_rows(entry.payload or {})
         if entry.type == "behavioral_activation"
         else [],
@@ -591,6 +674,8 @@ def entry_delete(entry_id):
 @app.route("/entry/<int:entry_id>/edit", methods=["GET", "POST"])
 def entry_edit(entry_id):
     entry = _get_entry_or_404(entry_id)
+    if entry.type in ("mantras", "mantra_event"):
+        return redirect(url_for("mantras_hub"))
 
     if request.method == "POST":
         if entry.type == "behavioral_activation":

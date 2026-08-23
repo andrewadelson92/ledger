@@ -1,0 +1,27 @@
+---
+description: Custom emotions are saved globally across all emotion pickers
+globs: templates/**/*
+alwaysApply: true
+---
+
+# Global saved emotions
+
+When a user adds a **custom emotion** (via "Other — type your own") anywhere in Ledger, it must be remembered **globally** for every form that reports emotions.
+
+## Storage
+
+- Use a single `localStorage` key: `ledger_saved_emotions`
+- All emotion pickers must read from and write to this key (via `emotion_wheel_picker` macro)
+
+## Behavior
+
+- Custom emotions are saved automatically when used — no opt-in checkbox
+- Built-in wheel emotions are never duplicated into saved storage
+- Saved emotions appear in the **Saved** category on every picker (check-in, diary card extras, thought record, etc.)
+- Removing a saved emotion from one picker removes it globally
+- Pickers listen for `ledger-saved-emotions-changed` and `storage` events to stay in sync on the same page or across tabs
+
+## When adding emotion UI
+
+- Reuse `templates/macros/emotion_wheel.html` — do not create separate saved-emotion storage
+- Do not introduce alternate keys or server-side-only custom emotion lists for picker UI
