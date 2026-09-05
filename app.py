@@ -479,7 +479,7 @@ def new_entry(entry_type):
             return redirect(url_for("index", tab="today"))
         if entry_type == "daily_planner":
             if not payload.get("focus"):
-                flash("Today's focus is required.")
+                flash("How I show up is required.")
                 return render_template(
                     f"forms/{entry_type}.html",
                     **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
@@ -814,7 +814,7 @@ def entry_edit(entry_id):
                 )
         if entry.type == "daily_planner":
             if not payload.get("focus"):
-                flash("Today's focus is required.")
+                flash("How I show up is required.")
                 return render_template(
                     f"forms/{entry.type}.html",
                     **_form_render_ctx(
