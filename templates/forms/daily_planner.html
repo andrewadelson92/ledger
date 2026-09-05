@@ -21,8 +21,12 @@
   </div>
 
   <div>
-    {{ field_label('Committed actions') }}
-    {{ text_input('committed_actions', payload.committed_actions or '', rows=6, placeholder='Concrete actions you are committing to today…') }}
+    {{ field_label('A tiny bit better') }}
+    <ul class="mb-3 list-disc space-y-1 pl-5 text-sm text-zinc-600">
+      <li>What could I do in my life that would make things a tiny bit better than they were this morning?</li>
+      <li>What small thing will I like as a reward?</li>
+    </ul>
+    {{ text_input('tiny_better_reward', payload.tiny_better_reward or '', rows=4, placeholder='One small improvement and a small reward…') }}
   </div>
 
   <section class="space-y-6">
@@ -72,6 +76,11 @@
       {{ journal_fields({'text': payload.diary_journal or ''}, false, 6, 'Journal Entry (optional)') }}
     </div>
   </section>
+
+  <div>
+    {{ field_label('Committed actions') }}
+    {{ text_input('committed_actions', payload.committed_actions or '', rows=6, placeholder='Concrete actions you are committing to today…') }}
+  </div>
 
   <details class="rounded-lg border border-zinc-200 bg-white p-4"
     {% if payload.agenda %}open{% endif %}>

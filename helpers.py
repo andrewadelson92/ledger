@@ -594,6 +594,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         diary_emotions, diary_urges, diary_journal = parse_embedded_diary_card(form)
         payload = {
             "focus": (form.get("focus") or form.get("intentions") or "").strip(),
+            "tiny_better_reward": (form.get("tiny_better_reward") or "").strip(),
             "committed_actions": (form.get("committed_actions") or "").strip(),
             "agenda": parse_agenda_slots(form),
             "noted_emotions": parse_emotions_json(

@@ -89,8 +89,15 @@
       </div>
       {% endif %}
 
+      {% if plan.tiny_better_reward %}
+      <div class="border-t border-zinc-100 pt-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">A tiny bit better</h3>
+        <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ plan.tiny_better_reward }}</p>
+      </div>
+      {% endif %}
+
       {% if invoked_mantras %}
-      <div{% if focus %} class="border-t border-zinc-100 pt-4"{% endif %}>
+      <div class="border-t border-zinc-100 pt-4">
         <div class="mb-2 flex items-center justify-between gap-3">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Mantras</h3>
           <a href="{{ url_for('mantras_hub') }}"
@@ -99,27 +106,6 @@
         <ul class="space-y-2">
           {% for m in invoked_mantras %}
           <li class="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">{{ m.text }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endif %}
-
-      {% if plan.committed_actions %}
-      <div class="border-t border-zinc-100 pt-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">Committed actions</h3>
-        <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ plan.committed_actions }}</p>
-      </div>
-      {% endif %}
-
-      {% if plan.agenda %}
-      <div class="border-t border-zinc-100 pt-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-3">Agenda</h3>
-        <ul class="space-y-2">
-          {% for slot in plan.agenda %}
-          <li class="flex gap-3 text-sm">
-            <span class="w-20 shrink-0 font-medium text-zinc-500">{{ format_planner_hour(slot.hour) }}</span>
-            <span class="min-w-0 text-zinc-800 whitespace-pre-wrap">{{ slot.plan }}</span>
-          </li>
           {% endfor %}
         </ul>
       </div>
@@ -168,6 +154,27 @@
           <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ plan.diary_journal }}</p>
         </div>
         {% endif %}
+      </div>
+      {% endif %}
+
+      {% if plan.committed_actions %}
+      <div class="border-t border-zinc-100 pt-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">Committed actions</h3>
+        <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ plan.committed_actions }}</p>
+      </div>
+      {% endif %}
+
+      {% if plan.agenda %}
+      <div class="border-t border-zinc-100 pt-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-3">Agenda</h3>
+        <ul class="space-y-2">
+          {% for slot in plan.agenda %}
+          <li class="flex gap-3 text-sm">
+            <span class="w-20 shrink-0 font-medium text-zinc-500">{{ format_planner_hour(slot.hour) }}</span>
+            <span class="min-w-0 text-zinc-800 whitespace-pre-wrap">{{ slot.plan }}</span>
+          </li>
+          {% endfor %}
+        </ul>
       </div>
       {% endif %}
     </div>

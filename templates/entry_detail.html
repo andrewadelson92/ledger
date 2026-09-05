@@ -150,23 +150,10 @@
     <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ focus }}</p>
   </div>
   {% endif %}
-  {% if p.committed_actions %}
+  {% if p.tiny_better_reward %}
   <div class="rounded-lg border border-zinc-200 bg-white p-4">
-    <h2 class="text-sm font-medium text-zinc-800 mb-1">Committed actions</h2>
-    <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p.committed_actions }}</p>
-  </div>
-  {% endif %}
-  {% if p.agenda %}
-  <div class="rounded-lg border border-zinc-200 bg-white p-4">
-    <h2 class="text-sm font-medium text-zinc-800 mb-3">Agenda</h2>
-    <ul class="space-y-3">
-      {% for slot in p.agenda %}
-      <li class="flex gap-3 text-sm">
-        <span class="w-20 shrink-0 font-medium text-zinc-500">{{ format_planner_hour(slot.hour) }}</span>
-        <span class="text-zinc-700 whitespace-pre-wrap">{{ slot.plan }}</span>
-      </li>
-      {% endfor %}
-    </ul>
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">A tiny bit better</h2>
+    <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p.tiny_better_reward }}</p>
   </div>
   {% endif %}
   {% if daily_planner_has_diary(p) %}
@@ -208,6 +195,25 @@
       <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p.diary_journal }}</p>
     </div>
     {% endif %}
+  </div>
+  {% endif %}
+  {% if p.committed_actions %}
+  <div class="rounded-lg border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">Committed actions</h2>
+    <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p.committed_actions }}</p>
+  </div>
+  {% endif %}
+  {% if p.agenda %}
+  <div class="rounded-lg border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-medium text-zinc-800 mb-3">Agenda</h2>
+    <ul class="space-y-3">
+      {% for slot in p.agenda %}
+      <li class="flex gap-3 text-sm">
+        <span class="w-20 shrink-0 font-medium text-zinc-500">{{ format_planner_hour(slot.hour) }}</span>
+        <span class="text-zinc-700 whitespace-pre-wrap">{{ slot.plan }}</span>
+      </li>
+      {% endfor %}
+    </ul>
   </div>
   {% endif %}
 </section>
