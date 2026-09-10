@@ -8,35 +8,16 @@
 {% block content %}
 {% set focus_text = payload.focus or payload.intentions or '' %}
 <h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
-<p class="text-sm text-zinc-600 mb-6">Choose how you show up, complete your diary card, and note any other emotions.</p>
+<p class="text-sm text-zinc-600 mb-6">Start with how you feel and what you’re urged toward, then set how you show up.</p>
 
 <form method="post"
   action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
   class="space-y-8">
 
-  <div>
-    {{ field_label('How I show up', true) }}
-    <p class="text-sm text-zinc-600 mb-2">Not the tasks — the stance. How you meet the world today with presence and care.</p>
-    {{ text_input('focus', focus_text, rows=6, required=true, placeholder='Open, steady, kind to what arises…') }}
-  </div>
-
-  <div>
-    {{ field_label('A tiny bit better') }}
-    <ul class="mb-3 list-disc space-y-1 pl-5 text-sm text-zinc-600">
-      <li>What could I do in my life that would make things a tiny bit better than they were this morning?</li>
-      <li>What small thing will I like as a reward?</li>
-    </ul>
-    {{ text_input('tiny_better_reward', payload.tiny_better_reward or '', rows=4, placeholder='One small improvement and a small reward…') }}
-  </div>
-
   <section class="space-y-6">
     <div>
-      <h2 class="text-sm font-medium text-zinc-800 mb-1">Diary card</h2>
-      <p class="text-sm text-zinc-600">Rate fixed emotions and target behavior urges (1–5). Add a journal note if helpful.</p>
-    </div>
-
-    <div>
-      <h3 class="text-sm font-medium text-zinc-800 mb-3">Emotions</h3>
+      <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotions</h2>
+      <p class="text-sm text-zinc-600 mb-3">Rate how you feel right now (1–5).</p>
       <ul class="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
         {% for name, intensity in diary_card_emotion_values(payload.diary_emotions) %}
         <li class="flex items-center gap-3">
@@ -51,7 +32,7 @@
       </ul>
 
       <div class="mt-4">
-        <h4 class="text-sm font-medium text-zinc-800 mb-1">Other emotions</h4>
+        <h3 class="text-sm font-medium text-zinc-800 mb-1">Other emotions</h3>
         <p class="text-sm text-zinc-600 mb-3">Anything beyond the tracked scale emotions. No intensity — just name them.</p>
         {{ emotion_wheel_picker(
           noted_emotion_wheel,
@@ -71,11 +52,26 @@
     <div>
       {{ target_behavior_urges(payload.diary_urges or [], default_target_behaviors) }}
     </div>
-
-    <div>
-      {{ journal_fields({'text': payload.diary_journal or ''}, false, 6, 'Journal Entry (optional)') }}
-    </div>
   </section>
+
+  <div>
+    {{ field_label('How I show up', true) }}
+    <p class="text-sm text-zinc-600 mb-2">Not the tasks — the stance. How you meet the world today with presence and care.</p>
+    {{ text_input('focus', focus_text, rows=6, required=true, placeholder='Open, steady, kind to what arises…') }}
+  </div>
+
+  <div>
+    {{ field_label('A tiny bit better') }}
+    <ul class="mb-3 list-disc space-y-1 pl-5 text-sm text-zinc-600">
+      <li>What could I do in my life that would make things a tiny bit better than they were this morning?</li>
+      <li>What small thing will I like as a reward?</li>
+    </ul>
+    {{ text_input('tiny_better_reward', payload.tiny_better_reward or '', rows=4, placeholder='One small improvement and a small reward…') }}
+  </div>
+
+  <div>
+    {{ journal_fields({'text': payload.diary_journal or ''}, false, 6, 'Journal Entry (optional)') }}
+  </div>
 
   <div>
     {{ field_label('Committed actions') }}
