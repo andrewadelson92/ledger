@@ -6,22 +6,6 @@
 <div class="space-y-8">
   <p class="text-sm text-zinc-600">{{ today_label }}</p>
 
-  {% if todays_daily_planner %}
-  <section aria-label="Quick add">
-    <h2 class="text-sm font-medium text-zinc-800 mb-3">Quick add</h2>
-    <div class="grid gap-3 sm:grid-cols-2">
-      <a href="{{ url_for('new_entry', entry_type='checkin') }}"
-         class="rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300 hover:shadow-sm transition">
-        <p class="font-medium text-zinc-900">Check-In</p>
-      </a>
-      <a href="{{ url_for('new_entry', entry_type='skill_used') }}"
-         class="rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300 hover:shadow-sm transition">
-        <p class="font-medium text-zinc-900">Skill Used</p>
-      </a>
-    </div>
-  </section>
-  {% endif %}
-
   {% if in_progress_items %}
   <section class="rounded-lg border border-zinc-300 bg-zinc-100 p-4" aria-label="In progress">
     <h2 class="text-sm font-medium text-zinc-900 mb-3">In progress</h2>
@@ -185,22 +169,6 @@
     {% endif %}
     {% endif %}
   </section>
-
-  {% if not todays_daily_planner %}
-  <section aria-label="Quick add">
-    <h2 class="text-sm font-medium text-zinc-800 mb-3">Quick add</h2>
-    <div class="grid gap-3 sm:grid-cols-2">
-      <a href="{{ url_for('new_entry', entry_type='checkin') }}"
-         class="rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300 hover:shadow-sm transition">
-        <p class="font-medium text-zinc-900">Check-In</p>
-      </a>
-      <a href="{{ url_for('new_entry', entry_type='skill_used') }}"
-         class="rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300 hover:shadow-sm transition">
-        <p class="font-medium text-zinc-900">Skill Used</p>
-      </a>
-    </div>
-  </section>
-  {% endif %}
 </div>
 
 {% elif tab == 'add' %}
