@@ -60,17 +60,30 @@ def check_password(user: User, password: str) -> bool:
 
 
 def get_or_create_preferences(user_id: int | None = None) -> UserPreference:
+    from constants import DEFAULT_TARGET_BEHAVIORS, DIARY_CARD_EMOTIONS
+
     user_id = user_id if user_id is not None else uid()
     prefs = UserPreference.query.filter_by(user_id=user_id).first()
+    created = False
     if prefs is None:
         prefs = UserPreference(
             user_id=user_id,
             saved_emotions=[],
             saved_skills=[],
-            target_behaviors=[],
+            target_behaviors=list(DEFAULT_TARGET_BEHAVIORS),
+            diary_emotions=list(DIARY_CARD_EMOTIONS),
             show_feelings_wheel=True,
         )
         db.session.add(prefs)
+        created = True
+    else:
+        # Seed tracked moods once; leave target_behaviors empty so the client can
+        # import an existing localStorage catalog on first sync.
+        if not (prefs.diary_emotions or []):
+            prefs.diary_emotions = list(DIARY_CARD_EMOTIONS)
+            prefs.updated_at = datetime.utcnow()
+            created = True
+    if created:
         db.session.commit()
     return prefs
 

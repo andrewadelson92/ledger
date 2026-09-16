@@ -17,9 +17,9 @@
   <section class="space-y-6">
     <div>
       <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotions</h2>
-      <p class="text-sm text-zinc-600 mb-3">Rate how you feel right now (1–5).</p>
+      <p class="text-sm text-zinc-600 mb-3">Rate how you feel right now (1–5). <a href="{{ url_for('settings') }}" class="text-zinc-800 underline hover:text-zinc-900">Manage tracked emotions</a></p>
       <ul class="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-        {% for name, intensity in diary_card_emotion_values(payload.diary_emotions) %}
+        {% for name, intensity in diary_card_emotion_values(payload.diary_emotions, diary_card_emotions) %}
         <li class="flex items-center gap-3">
           <span class="text-sm font-medium text-zinc-800 w-28 shrink-0">{{ name }}</span>
           <input type="range" min="1" max="5" value="{{ intensity }}"

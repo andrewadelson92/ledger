@@ -277,7 +277,15 @@ def parse_emotions_json(
     return out
 
 
-def diary_card_emotion_values(emotions: list | None = None) -> list[tuple[str, int]]:
+def diary_card_emotion_values(
+    emotions: list | None = None,
+    tracked: list[str] | None = None,
+) -> list[tuple[str, int]]:
+    tracked_names = [
+        (n or "").strip()
+        for n in (tracked if tracked is not None else DIARY_CARD_EMOTIONS)
+        if (n or "").strip()
+    ]
     by_name = {
         e.get("name"): e.get("intensity")
         for e in (emotions or [])
@@ -285,12 +293,19 @@ def diary_card_emotion_values(emotions: list | None = None) -> list[tuple[str, i
     }
     return [
         (name, max(1, min(5, int(by_name[name]) if by_name.get(name) is not None else 3)))
-        for name in DIARY_CARD_EMOTIONS
+        for name in tracked_names
     ]
 
 
-def diary_card_extra_emotions(emotions: list | None = None) -> list[dict]:
-    fixed = {name.lower() for name in DIARY_CARD_EMOTIONS}
+def diary_card_extra_emotions(
+    emotions: list | None = None,
+    tracked: list[str] | None = None,
+) -> list[dict]:
+    fixed = {
+        (n or "").strip().lower()
+        for n in (tracked if tracked is not None else DIARY_CARD_EMOTIONS)
+        if (n or "").strip()
+    }
     out = []
     for item in emotions or []:
         if not isinstance(item, dict):
@@ -404,12 +419,33 @@ def todays_invoked_mantras(entries, tz: ZoneInfo, today=None) -> list[dict]:
     return out
 
 
+def _tracked_diary_emotions() -> list[str]:
+    """Current user's tracked diary emotions, falling back to app defaults."""
+    try:
+        from auth import get_or_create_preferences
+        from flask_login import current_user
+
+        if getattr(current_user, "is_authenticated", False):
+            prefs = get_or_create_preferences()
+            items = [
+                (n or "").strip()
+                for n in (prefs.diary_emotions or [])
+                if (n or "").strip()
+            ]
+            if items:
+                return items
+    except Exception:
+        pass
+    return list(DIARY_CARD_EMOTIONS)
+
+
 def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict], str]:
     """Parse optional diary-card fields; return empty if the section was unused."""
-    emotions = parse_diary_card_emotions(form)
+    tracked = _tracked_diary_emotions()
+    emotions = parse_diary_card_emotions(form, tracked=tracked)
     urges = parse_urges_json(form.get("urges_json"))
     journal = (form.get("text") or "").strip()
-    fixed = {name.lower() for name in DIARY_CARD_EMOTIONS}
+    fixed = {name.lower() for name in tracked}
     extras = [
         e for e in emotions
         if isinstance(e, dict) and (e.get("name") or "").strip().lower() not in fixed
@@ -433,13 +469,18 @@ def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict], str]:
     return emotions, urges, journal
 
 
-def parse_diary_card_emotions(form) -> list[dict]:
+def parse_diary_card_emotions(form, tracked: list[str] | None = None) -> list[dict]:
+    tracked_names = [
+        (n or "").strip()
+        for n in (tracked if tracked is not None else _tracked_diary_emotions())
+        if (n or "").strip()
+    ]
     out = []
-    for name in DIARY_CARD_EMOTIONS:
+    for name in tracked_names:
         key = diary_emotion_field_name(name)
         intensity = parse_int(form.get(key), default=3) or 3
         out.append({"name": name, "intensity": max(1, min(5, intensity))})
-    fixed_lower = {name.lower() for name in DIARY_CARD_EMOTIONS}
+    fixed_lower = {name.lower() for name in tracked_names}
     for item in parse_emotions_json(form.get("extra_emotions_json")):
         name = item.get("name", "").strip()
         if name and name.lower() not in fixed_lower:

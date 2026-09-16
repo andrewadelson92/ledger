@@ -131,13 +131,21 @@ def fmt_date(dt):
 
 @app.context_processor
 def inject_globals():
+    target_behaviors = list(DEFAULT_TARGET_BEHAVIORS)
+    diary_emotions = list(DIARY_CARD_EMOTIONS)
+    if current_user.is_authenticated:
+        prefs = get_or_create_preferences()
+        if prefs.target_behaviors:
+            target_behaviors = list(prefs.target_behaviors)
+        if prefs.diary_emotions:
+            diary_emotions = list(prefs.diary_emotions)
     return {
         "entry_type_labels": ENTRY_TYPE_LABELS,
         "skill_module_labels": SKILL_MODULE_LABELS,
         "module_skills": MODULE_SKILLS,
         "emotion_wheel": EMOTION_WHEEL,
-        "default_target_behaviors": DEFAULT_TARGET_BEHAVIORS,
-        "diary_card_emotions": DIARY_CARD_EMOTIONS,
+        "default_target_behaviors": target_behaviors,
+        "diary_card_emotions": diary_emotions,
         "chain_link_type_label": chain_link_type_label,
         "diary_card_emotion_values": diary_card_emotion_values,
         "diary_card_extra_emotions": diary_card_extra_emotions,
@@ -410,11 +418,13 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         **extra,
     }
     if entry_type == "daily_planner":
+        prefs = get_or_create_preferences()
+        tracked = list(prefs.diary_emotions or DIARY_CARD_EMOTIONS)
         payload = dict(ctx["payload"])
         # Fold legacy intensity extras into noted emotions (Today only tracks names).
         noted = list(payload.get("noted_emotions") or [])
         seen = {(e.get("name") or "").strip().lower() for e in noted if isinstance(e, dict)}
-        for extra_e in diary_card_extra_emotions(payload.get("diary_emotions")):
+        for extra_e in diary_card_extra_emotions(payload.get("diary_emotions"), tracked):
             name = (extra_e.get("name") or "").strip()
             if name and name.lower() not in seen:
                 noted.append({"name": name})
@@ -422,10 +432,21 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         payload["noted_emotions"] = noted
         ctx["payload"] = payload
         ctx["agenda_slots"] = agenda_slots_for_form(payload)
-        ctx["noted_emotion_wheel"] = emotion_wheel_excluding(DIARY_CARD_EMOTIONS)
-        ctx["diary_card_emotions"] = DIARY_CARD_EMOTIONS
+        ctx["noted_emotion_wheel"] = emotion_wheel_excluding(tracked)
+        ctx["diary_card_emotions"] = tracked
+        ctx["default_target_behaviors"] = list(
+            prefs.target_behaviors or DEFAULT_TARGET_BEHAVIORS
+        )
     if entry_type == "diary_card":
-        ctx["extra_emotions"] = diary_card_extra_emotions(ctx["payload"].get("emotions"))
+        prefs = get_or_create_preferences()
+        tracked = list(prefs.diary_emotions or DIARY_CARD_EMOTIONS)
+        ctx["diary_card_emotions"] = tracked
+        ctx["default_target_behaviors"] = list(
+            prefs.target_behaviors or DEFAULT_TARGET_BEHAVIORS
+        )
+        ctx["extra_emotions"] = diary_card_extra_emotions(
+            ctx["payload"].get("emotions"), tracked
+        )
         if form is not None:
             ctx["journal_payload"] = {"text": parse_journal_fields(form).get("text", "")}
         elif entry is not None:
@@ -437,6 +458,9 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
     if entry_type == "checkin":
         prefs = get_or_create_preferences()
         ctx["show_feelings_wheel"] = bool(prefs.show_feelings_wheel)
+        ctx["default_target_behaviors"] = list(
+            prefs.target_behaviors or DEFAULT_TARGET_BEHAVIORS
+        )
     return ctx
 
 
@@ -993,6 +1017,19 @@ def settings():
             flash("Display settings saved.")
             return redirect(url_for("settings"))
 
+        if form_kind == "catalogs":
+            diary = _parse_lines_list(request.form.get("diary_emotions_text"))
+            targets = _parse_lines_list(request.form.get("target_behaviors_text"))
+            if not diary:
+                flash("Add at least one tracked emotion.")
+                return redirect(url_for("settings"))
+            prefs.diary_emotions = diary
+            prefs.target_behaviors = targets
+            prefs.updated_at = datetime.utcnow()
+            db.session.commit()
+            flash("Tracked emotions and target behaviors saved.")
+            return redirect(url_for("settings"))
+
         invite_email = (request.form.get("invite_email") or "").strip().lower()
         if not invite_email:
             flash("Enter an email for the invite.")
@@ -1025,7 +1062,24 @@ def settings():
         "settings.html",
         pending_invites=pending_invites,
         show_feelings_wheel=bool(prefs.show_feelings_wheel),
+        diary_emotions_text="\n".join(prefs.diary_emotions or []),
+        target_behaviors_text="\n".join(prefs.target_behaviors or []),
     )
+
+
+def _parse_lines_list(raw: str | None) -> list[str]:
+    seen = set()
+    out = []
+    for line in (raw or "").splitlines():
+        name = line.strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(name)
+    return out
 
 
 @app.route("/settings/invite/<int:invite_id>/cancel", methods=["POST"])
@@ -1106,6 +1160,8 @@ def _prefs_payload(prefs: UserPreference) -> dict:
         "saved_emotions": prefs.saved_emotions or [],
         "saved_skills": prefs.saved_skills or [],
         "target_behaviors": prefs.target_behaviors or [],
+        "diary_emotions": prefs.diary_emotions or [],
+        "show_feelings_wheel": bool(prefs.show_feelings_wheel),
     }
 
 
@@ -1117,7 +1173,12 @@ def api_preferences_get():
 
 @app.route("/api/preferences/<kind>", methods=["PUT"])
 def api_preferences_put(kind):
-    if kind not in ("saved_emotions", "saved_skills", "target_behaviors"):
+    if kind not in (
+        "saved_emotions",
+        "saved_skills",
+        "target_behaviors",
+        "diary_emotions",
+    ):
         abort(404)
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or "items" not in data:
@@ -1125,8 +1186,35 @@ def api_preferences_put(kind):
     items = data.get("items")
     if not isinstance(items, list):
         abort(400)
+    cleaned = []
+    seen = set()
+    for item in items:
+        if kind == "saved_skills":
+            if not isinstance(item, dict):
+                continue
+            mod = (item.get("module") or "").strip()
+            skill = (item.get("skill") or "").strip()
+            if not mod or not skill:
+                continue
+            key = (mod.lower(), skill.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append({"module": mod, "skill": skill})
+        else:
+            name = (item if isinstance(item, str) else (item.get("name") if isinstance(item, dict) else "") or "")
+            name = str(name).strip()
+            if not name:
+                continue
+            key = name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(name)
+    if kind == "diary_emotions" and not cleaned:
+        abort(400)
     prefs = get_or_create_preferences()
-    setattr(prefs, kind, items)
+    setattr(prefs, kind, cleaned)
     prefs.updated_at = datetime.utcnow()
     db.session.commit()
     return jsonify({"ok": True, "items": getattr(prefs, kind) or []})

@@ -9,6 +9,34 @@
 
   <div class="rounded-lg border border-zinc-200 bg-white">
     <div class="border-b border-zinc-200 px-4 py-3">
+      <h2 class="text-sm font-semibold">Tracked emotions &amp; target behaviors</h2>
+      <p class="mt-1 text-sm text-zinc-600">One per line. These power Today’s intensity rows and urge pickers. Adding a behavior on Today still updates this list.</p>
+    </div>
+    <form method="post" action="{{ url_for('settings') }}" class="px-4 py-4 space-y-4">
+      <input type="hidden" name="form_kind" value="catalogs">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-zinc-900">Tracked emotions (Today)</label>
+          <textarea name="diary_emotions_text" rows="8" required
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+            placeholder="Anxious&#10;Sad&#10;…">{{ diary_emotions_text }}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-zinc-900">Target behaviors</label>
+          <textarea name="target_behaviors_text" rows="8"
+            class="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+            placeholder="Laying in bed&#10;…">{{ target_behaviors_text }}</textarea>
+        </div>
+      </div>
+      <button type="submit"
+        class="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50">
+        Save lists
+      </button>
+    </form>
+  </div>
+
+  <div class="rounded-lg border border-zinc-200 bg-white">
+    <div class="border-b border-zinc-200 px-4 py-3">
       <h2 class="text-sm font-semibold">Display</h2>
       <p class="mt-1 text-sm text-zinc-600">Choose what shows on Emotion Check-In.</p>
     </div>

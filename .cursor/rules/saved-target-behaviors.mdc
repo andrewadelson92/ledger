@@ -1,20 +1,20 @@
 ---
-description: Target behaviors are saved per-user across urge pickers
+description: Per-user tracked diary emotions and target behaviors
 globs: templates/**/*
 alwaysApply: true
 ---
 
-# Per-user target behaviors
+# Per-user tracked emotions & target behaviors
 
-Target behaviors (diary card / check-in urges) are remembered **for that user** across devices.
+## Tracked emotions (Today intensity rows)
 
-## Storage
+- Server: `user_preferences.diary_emotions` via Settings + `GET/PUT /api/preferences`
+- Defaults backfilled from `DIARY_CARD_EMOTIONS` for existing users
+- Today / diary card forms read the current user’s list — do not hardcode the six defaults in new UI
 
-- Server: `user_preferences.target_behaviors` via `GET/PUT /api/preferences` (`static/ledger_prefs.js`)
-- Client cache / offline fallback: `localStorage` key `ledger_target_behaviors`
-- On first load, empty server prefs import from localStorage once, then sync both ways
+## Target behaviors
+
+- Server: `user_preferences.target_behaviors` via Settings + macros/`LedgerPrefs`
+- Client cache: `localStorage` key `ledger_target_behaviors`
+- Empty server list imports from localStorage once; adding on Today/check-in still syncs to the server
 - Use `templates/macros/target_behaviors.html` + `LedgerPrefs`
-
-## When adding urge UI
-
-- Reuse the target behavior macros — do not invent alternate storage keys

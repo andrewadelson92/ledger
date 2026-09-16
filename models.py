@@ -41,6 +41,7 @@ class UserPreference(db.Model):
     saved_emotions = db.Column(db.JSON, nullable=False, default=list)
     saved_skills = db.Column(db.JSON, nullable=False, default=list)
     target_behaviors = db.Column(db.JSON, nullable=False, default=list)
+    diary_emotions = db.Column(db.JSON, nullable=False, default=list)
     show_feelings_wheel = db.Column(db.Boolean, nullable=False, default=True)
     updated_at = db.Column(
         db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False

@@ -99,5 +99,15 @@
     saveTargetBehaviors: function(items) {
       return putKind('target_behaviors', 'ledger_target_behaviors', items);
     },
+    loadDiaryEmotions: function() {
+      return loadKind('diary_emotions', 'ledger_diary_emotions', function(items) {
+        return items.filter(Boolean).map(function(x) {
+          return typeof x === 'string' ? x : (x && x.name) || '';
+        }).filter(Boolean);
+      });
+    },
+    saveDiaryEmotions: function(items) {
+      return putKind('diary_emotions', 'ledger_diary_emotions', items);
+    },
   };
 })(window);
