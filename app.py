@@ -5,9 +5,41 @@ import os
 import sys
 import uuid
 
+_app_root = os.path.dirname(os.path.abspath(__file__))
+
+# Demo mode must set DB path before load_config.
+DEMO_USER_EMAIL = "demo@localhost"
+DEMO_USER_PASSWORD = "demopass123"
+_is_demo = len(sys.argv) >= 2 and sys.argv[1].lower() == "demo"
+_demo_clear = (
+    len(sys.argv) >= 3
+    and sys.argv[1].lower() == "demo"
+    and sys.argv[2].lower() == "clear"
+)
+if _is_demo:
+    _demo_db = os.path.join(_app_root, "instance", "demo_ledger.db")
+    os.makedirs(os.path.join(_app_root, "instance"), exist_ok=True)
+    if _demo_clear:
+        try:
+            os.remove(_demo_db)
+        except FileNotFoundError:
+            pass
+    os.environ["LEDGER_DB_PATH"] = _demo_db
+
 from db import db
 from config import load_config
-from models import Entry
+from models import Entry, User, UserPreference
+from flask_login import login_user, logout_user, current_user
+from auth import (
+    login_manager,
+    PUBLIC_ENDPOINTS,
+    uid,
+    entries_q,
+    get_entry,
+    set_password,
+    check_password,
+    get_or_create_preferences,
+)
 from constants import (
     ENTRY_TYPES,
     ENTRY_TYPE_LABELS,
@@ -64,11 +96,10 @@ from helpers import (
 
 ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card", "mantra_event"})
 
-_app_root = os.path.dirname(os.path.abspath(__file__))
-
 app = Flask(__name__)
 load_config(app)
 db.init_app(app)
+login_manager.init_app(app)
 
 from flask_migrate import Migrate
 
@@ -121,6 +152,7 @@ def inject_globals():
         "format_planner_hour": format_planner_hour,
         "daily_planner_focus": daily_planner_focus,
         "daily_planner_has_diary": daily_planner_has_diary,
+        "current_user": current_user,
     }
 
 
@@ -171,9 +203,35 @@ def _running_flask_db_command() -> bool:
     return bool(migrate_subcmds.intersection(sys.argv))
 
 
+def _ensure_demo_blank_user() -> User:
+    """Local demo only: ensure a blank-slate login exists on the demo DB."""
+    user = User.query.filter_by(email=DEMO_USER_EMAIL).first()
+    if user is None:
+        user = User(email=DEMO_USER_EMAIL, is_active=True)
+        db.session.add(user)
+        db.session.flush()
+    set_password(user, DEMO_USER_PASSWORD)
+    user.is_active = True
+    db.session.commit()
+    get_or_create_preferences(user.id)
+    return user
+
+
 with app.app_context():
     if not _running_flask_db_command():
         _bootstrap_database()
+        if _is_demo:
+            _ensure_demo_blank_user()
+
+
+@app.before_request
+def _require_login():
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return
+    if request.endpoint and request.endpoint.startswith("static"):
+        return
+    if not current_user.is_authenticated:
+        return login_manager.unauthorized()
 
 
 @app.route("/")
@@ -182,7 +240,7 @@ def index():
     if tab not in ("today", "log", "add"):
         tab = "today"
 
-    entries = Entry.query.order_by(Entry.created_at.desc()).all()
+    entries = entries_q().order_by(Entry.created_at.desc()).all()
     cards = [
         {
             "entry": e,
@@ -234,23 +292,31 @@ def index():
 
 
 def _get_entry_or_404(entry_id: int) -> Entry:
-    entry = Entry.query.get(entry_id)
-    if not entry:
-        abort(404)
-    return entry
+    return get_entry(entry_id)
 
 
 def _touch_entry(entry: Entry) -> None:
     entry.updated_at = datetime.utcnow()
 
 
+def _make_entry(**kwargs) -> Entry:
+    kwargs.setdefault("user_id", uid())
+    return Entry(**kwargs)
+
+
 def _exposure_plans():
-    return Entry.query.filter_by(type="exposure_plan").order_by(Entry.created_at.desc()).all()
+    return (
+        entries_q()
+        .filter_by(type="exposure_plan")
+        .order_by(Entry.created_at.desc())
+        .all()
+    )
 
 
 def _todays_daily_goal():
     candidates = (
-        Entry.query.filter_by(type="daily_goal")
+        entries_q()
+        .filter_by(type="daily_goal")
         .order_by(Entry.created_at.desc())
         .all()
     )
@@ -259,7 +325,8 @@ def _todays_daily_goal():
 
 def _todays_daily_planner():
     candidates = (
-        Entry.query.filter_by(type="daily_planner")
+        entries_q()
+        .filter_by(type="daily_planner")
         .order_by(Entry.created_at.desc())
         .all()
     )
@@ -267,13 +334,10 @@ def _todays_daily_planner():
 
 
 def _current_mantras():
-    """Return the single mantras library entry (most recent), if any.
-
-    Stored as an Entry so future multi-user scoping can use the same table
-    (e.g. filter by user_id) without a separate localStorage catalog.
-    """
+    """Return the single mantras library entry for the current user, if any."""
     return (
-        Entry.query.filter_by(type="mantras")
+        entries_q()
+        .filter_by(type="mantras")
         .order_by(Entry.updated_at.desc(), Entry.created_at.desc())
         .first()
     )
@@ -282,21 +346,20 @@ def _current_mantras():
 def _ensure_mantras_library() -> Entry:
     existing = _current_mantras()
     if existing:
-        # Normalize legacy highlighted items out of the stored payload.
         items = mantra_library_items(existing.payload)
         if items != (existing.payload or {}).get("items"):
             existing.payload = {"items": items}
             _touch_entry(existing)
             db.session.commit()
         return existing
-    entry = Entry(type="mantras", payload={"items": []})
+    entry = _make_entry(type="mantras", payload={"items": []})
     db.session.add(entry)
     db.session.commit()
     return entry
 
 
 def _log_mantra_event(action: str, mantra_id: str, text: str, journal: str = "") -> Entry:
-    entry = Entry(
+    entry = _make_entry(
         type="mantra_event",
         payload={
             "action": action,
@@ -317,7 +380,7 @@ def _save_daily_goal(payload: dict) -> Entry:
         _touch_entry(existing)
         db.session.commit()
         return existing
-    entry = Entry(type="daily_goal", payload=payload)
+    entry = _make_entry(type="daily_goal", payload=payload)
     db.session.add(entry)
     db.session.commit()
     return entry
@@ -330,7 +393,7 @@ def _save_daily_planner(payload: dict) -> Entry:
         _touch_entry(existing)
         db.session.commit()
         return existing
-    entry = Entry(type="daily_planner", payload=payload)
+    entry = _make_entry(type="daily_planner", payload=payload)
     db.session.add(entry)
     db.session.commit()
     return entry
@@ -410,7 +473,7 @@ def new_entry(entry_type):
             elif not behavioral_activation_has_plan(payload):
                 flash("Rate current and predicted levels for joy and sadness.")
             else:
-                entry = Entry(
+                entry = _make_entry(
                     type=entry_type,
                     payload=payload,
                     linked_entry_id=linked_entry_id,
@@ -430,7 +493,7 @@ def new_entry(entry_type):
             elif not exposure_has_plan(payload):
                 flash("Rate SUDS before and predicted peak SUDS.")
             else:
-                entry = Entry(
+                entry = _make_entry(
                     type=entry_type,
                     payload=payload,
                     linked_entry_id=linked_entry_id,
@@ -451,7 +514,7 @@ def new_entry(entry_type):
                     f"forms/{entry_type}.html",
                     **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
                 )
-            entry = Entry(
+            entry = _make_entry(
                 type=entry_type,
                 payload=payload,
                 linked_entry_id=linked_entry_id,
@@ -487,7 +550,7 @@ def new_entry(entry_type):
             _save_daily_planner(payload)
             flash("Today saved.")
             return redirect(url_for("index", tab="today"))
-        entry = Entry(
+        entry = _make_entry(
             type=entry_type,
             payload=payload,
             linked_entry_id=linked_entry_id,
@@ -527,7 +590,8 @@ def mantras_hub():
     items = mantra_library_items(library.payload)
     invoked_ids = {
         m["id"] for m in todays_invoked_mantras(
-            Entry.query.filter_by(type="mantra_event")
+            entries_q()
+            .filter_by(type="mantra_event")
             .order_by(Entry.created_at.desc())
             .all(),
             LOCAL_TZ,
@@ -600,11 +664,11 @@ def entry_detail(entry_id):
     linked_journal = None
     linked_diary_card = None
     if entry.type == "exposure_checkin" and entry.linked_entry_id:
-        linked_plan = Entry.query.get(entry.linked_entry_id)
+        linked_plan = entries_q().filter_by(id=entry.linked_entry_id).first()
     if entry.type == "diary_card":
         linked_journal = linked_journal_for(entry)
     if entry.type == "journal" and entry.linked_entry_id:
-        parent = Entry.query.get(entry.linked_entry_id)
+        parent = entries_q().filter_by(id=entry.linked_entry_id).first()
         if parent and parent.type == "diary_card":
             linked_diary_card = parent
     needs_ba_outcome = (
@@ -859,6 +923,101 @@ def history():
     return redirect(url_for("index", tab="log"))
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        user = User.query.filter_by(email=email).first()
+        if user is None or not user.is_active or not check_password(user, password):
+            flash("Invalid email or password.")
+            show_setup = User.query.filter(User.password_hash.is_(None)).count() > 0
+            return render_template("login.html", show_setup_link=show_setup), 401
+        login_user(user, remember=True)
+        get_or_create_preferences(user.id)
+        next_url = request.args.get("next")
+        if next_url and next_url.startswith("/"):
+            return redirect(next_url)
+        return redirect(url_for("index"))
+    show_setup = User.query.filter(User.password_hash.is_(None)).count() > 0
+    return render_template("login.html", show_setup_link=show_setup)
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    logout_user()
+    flash("Signed out.")
+    return redirect(url_for("login"))
+
+
+@app.route("/setup-password", methods=["GET", "POST"])
+def setup_password():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        confirm = request.form.get("password_confirm") or ""
+        user = User.query.filter_by(email=email).first()
+        if user is None or not user.is_active:
+            flash("No account found for that email.")
+            return render_template("setup_password.html"), 400
+        if user.password_hash:
+            flash("This account already has a password. Sign in instead.")
+            return redirect(url_for("login"))
+        if len(password) < 8:
+            flash("Password must be at least 8 characters.")
+            return render_template("setup_password.html"), 400
+        if password != confirm:
+            flash("Passwords do not match.")
+            return render_template("setup_password.html"), 400
+        set_password(user, password)
+        db.session.commit()
+        login_user(user, remember=True)
+        get_or_create_preferences(user.id)
+        flash("Password saved.")
+        return redirect(url_for("index"))
+    return render_template("setup_password.html")
+
+
+def _prefs_payload(prefs: UserPreference) -> dict:
+    return {
+        "saved_emotions": prefs.saved_emotions or [],
+        "saved_skills": prefs.saved_skills or [],
+        "target_behaviors": prefs.target_behaviors or [],
+    }
+
+
+@app.route("/api/preferences", methods=["GET"])
+def api_preferences_get():
+    prefs = get_or_create_preferences()
+    return jsonify(_prefs_payload(prefs))
+
+
+@app.route("/api/preferences/<kind>", methods=["PUT"])
+def api_preferences_put(kind):
+    if kind not in ("saved_emotions", "saved_skills", "target_behaviors"):
+        abort(404)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "items" not in data:
+        abort(400)
+    items = data.get("items")
+    if not isinstance(items, list):
+        abort(400)
+    prefs = get_or_create_preferences()
+    setattr(prefs, kind, items)
+    prefs.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"ok": True, "items": getattr(prefs, kind) or []})
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5002))
+    if _is_demo:
+        print("Running in DEMO mode (database: instance/demo_ledger.db)")
+        print(f"  Sign in: {DEMO_USER_EMAIL} / {DEMO_USER_PASSWORD}")
+        print("  Reset blank slate: python app.py demo clear")
+        print("  Or: python scripts/demo_user.py reset")
     app.run(host="0.0.0.0", port=port, debug=app.config["DEBUG"])

@@ -464,7 +464,10 @@ def linked_journal_for(entry) -> Any | None:
 
     if entry.type != "diary_card":
         return None
-    return Entry.query.filter_by(type="journal", linked_entry_id=entry.id).first()
+    q = Entry.query.filter_by(type="journal", linked_entry_id=entry.id)
+    if getattr(entry, "user_id", None) is not None:
+        q = q.filter_by(user_id=entry.user_id)
+    return q.first()
 
 
 def sync_diary_card_journal(diary_entry, form) -> None:
@@ -489,6 +492,7 @@ def sync_diary_card_journal(diary_entry, form) -> None:
     db.session.add(
         Entry(
             type="journal",
+            user_id=diary_entry.user_id,
             payload=payload,
             linked_entry_id=diary_entry.id,
         )

@@ -110,7 +110,11 @@
     moduleLabels = JSON.parse(document.getElementById('skill-module-labels-data').textContent);
   } catch (e) {}
 
+  let savedSkillsCache = null;
+  let savedSkillsReady = null;
+
   function loadSaved() {
+    if (savedSkillsCache) return savedSkillsCache.slice();
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const parsed = JSON.parse(raw || '[]');
@@ -123,8 +127,33 @@
   }
 
   function saveSaved(list) {
+    savedSkillsCache = list.slice();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
     window.dispatchEvent(new CustomEvent('ledger-saved-skills-changed'));
+    if (window.LedgerPrefs) {
+      window.LedgerPrefs.saveSkills(list);
+    }
+  }
+
+  function ensureSavedLoaded(cb) {
+    if (savedSkillsCache) {
+      cb(savedSkillsCache.slice());
+      return;
+    }
+    if (!window.LedgerPrefs) {
+      savedSkillsCache = loadSaved();
+      cb(savedSkillsCache.slice());
+      return;
+    }
+    if (!savedSkillsReady) {
+      savedSkillsReady = window.LedgerPrefs.loadSkills().then(function(items) {
+        savedSkillsCache = items;
+        return items;
+      });
+    }
+    savedSkillsReady.then(function(items) {
+      cb(items.slice());
+    });
   }
 
   function isBuiltinSkill(module, skill) {
@@ -590,6 +619,17 @@
   });
 
   window.addEventListener('ledger-saved-skills-changed', function() {
+    if (window.LedgerPrefs) {
+      window.LedgerPrefs.loadSkills().then(function(items) {
+        savedSkillsCache = items;
+        refreshSkillPickers();
+      });
+    } else {
+      refreshSkillPickers();
+    }
+  });
+
+  function refreshSkillPickers() {
     document.querySelectorAll('.skill-picker-single').forEach(function(picker) {
       if (picker.dataset.searchable === 'true') {
         const results = picker.querySelector('.skill-results');
@@ -629,10 +669,15 @@
         populateSkillSelect(moduleSelect, skillSelect, valueInput ? valueInput.value : '');
       }
     });
+  }
+
+  ensureSavedLoaded(function() {
+    refreshSkillPickers();
   });
 
   window.addEventListener('storage', function(e) {
     if (e.key === STORAGE_KEY) {
+      savedSkillsCache = null;
       window.dispatchEvent(new CustomEvent('ledger-saved-skills-changed'));
     }
   });

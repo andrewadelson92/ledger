@@ -1,18 +1,20 @@
 ---
-description: Custom skills are saved globally across skill pickers
+description: Custom skills are saved per-user across skill pickers
 globs: templates/**/*
 alwaysApply: true
 ---
 
 # Global saved skills
 
-When a user adds a **custom skill** (via "Other — type your own") anywhere in Ledger, it must be remembered **globally** for every form that selects skills.
+When a user adds a **custom skill** (via "Other — type your own") anywhere in Ledger, it must be remembered **for that user** on every form that selects skills.
 
 ## Storage
 
-- Use a single `localStorage` key: `ledger_saved_skills`
+- Server: `user_preferences.saved_skills` via `GET/PUT /api/preferences` (`static/ledger_prefs.js`)
+- Client cache / offline fallback: `localStorage` key `ledger_saved_skills`
 - Stored as an array of `{ module, skill }` objects
-- All skill pickers must read from and write to this key (via `templates/macros/skills.html`)
+- On first load, empty server prefs import from localStorage once, then sync both ways
+- All skill pickers must use `templates/macros/skills.html` + `LedgerPrefs`
 
 ## Behavior
 
@@ -23,5 +25,5 @@ When a user adds a **custom skill** (via "Other — type your own") anywhere in 
 
 ## When adding skill UI
 
-- Reuse `templates/macros/skills.html` — do not create separate saved-skill storage
-- Do not introduce alternate keys or server-side-only custom skill lists for picker UI
+- Reuse `templates/macros/skills.html` and `static/ledger_prefs.js`
+- Do not introduce alternate keys or browser-only custom skill lists for picker UI

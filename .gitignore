@@ -28,6 +28,10 @@ instance/
 *.sqlite
 *.sqlite3
 
+# Local DB dumps
+*.dump
+*.sql.bak
+
 # IDE
 .vscode/
 .idea/

@@ -8,16 +8,22 @@
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-180.png') }}">
   <!-- Tailwind (CDN for MVP) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="{{ url_for('static', filename='ledger_prefs.js') }}"></script>
 </head>
 <body class="bg-zinc-50 text-zinc-900">
   <header class="border-b border-zinc-200 bg-white">
-    <div class="mx-auto max-w-3xl px-4 py-3 sm:py-4">
+    <div class="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:py-4">
       <a href="{{ url_for('index') }}"
          class="inline-flex items-center gap-2.5 text-lg font-semibold tracking-tight text-zinc-900 hover:text-zinc-700">
         <img src="{{ url_for('static', filename='logo.png') }}" alt=""
           class="h-9 w-9 shrink-0 object-contain" width="36" height="36">
         Ledger
       </a>
+      {% if current_user.is_authenticated %}
+      <form method="post" action="{{ url_for('logout') }}">
+        <button type="submit" class="text-sm text-zinc-600 hover:text-zinc-900">Sign out</button>
+      </form>
+      {% endif %}
     </div>
   </header>
 

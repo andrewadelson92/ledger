@@ -2,7 +2,7 @@
 
 A personal DBT/CBT skills practice log — a calm, minimal companion to [Long Track](https://github.com/andrewadelson92/long_track). Log emotions, skills, diary cards, thought records, behavioral activation, exposure work, chain analyses, and journal entries in one place.
 
-Single-user, no auth yet. Entry data (including Mantras) is stored in the database so it can be scoped per user later. Browser localStorage is only used for picker catalogs (custom skills, emotions, target behaviors).
+Multi-user with email login. Entries and preference catalogs (custom skills, emotions, target behaviors) are scoped per user in the database. Existing local data is backfilled to the owner account on migration.
 
 Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL on Railway.
 
@@ -33,13 +33,23 @@ cp .env.example .env   # optional
 python app.py
 ```
 
-Open [http://127.0.0.1:5002](http://127.0.0.1:5002).
+Open [http://127.0.0.1:5002](http://127.0.0.1:5002). First visit: set a password for the owner email (default `andrew.adelson92@gmail.com`, override with `LEDGER_OWNER_EMAIL`).
 
 Migrations run automatically on startup (SQLite). For manual migration commands:
 
 ```bash
 flask db upgrade
 ```
+
+### Demo mode (blank slate, separate DB)
+
+```bash
+python app.py demo          # uses instance/demo_ledger.db
+python app.py demo clear    # wipe demo DB and recreate blank user
+# or: python scripts/demo_user.py reset
+```
+
+Sign in as `demo@localhost` / `demopass123`. Demo never touches your personal database.
 
 ## Environment variables
 
@@ -49,6 +59,7 @@ flask db upgrade
 | `SECRET_KEY` | Required in production |
 | `DATABASE_URL` | PostgreSQL URL in production (Railway) |
 | `LEDGER_DB_PATH` | SQLite path override for local dev |
+| `LEDGER_OWNER_EMAIL` | Owner email for migration backfill (default `andrew.adelson92@gmail.com`; **required in production**) |
 | `PORT` | HTTP port (default `5002` for `python app.py`, `8080` for gunicorn) |
 
 See `.env.example` for a starter template.
@@ -60,7 +71,7 @@ Same pattern as Long Track:
 1. Push this repo to GitHub.
 2. Create a new Railway project from the repo.
 3. Add a **PostgreSQL** plugin and link `DATABASE_URL` to the web service.
-4. Set `LEDGER_ENV=production` and `SECRET_KEY` on the web service.
+4. Set `LEDGER_ENV=production`, `SECRET_KEY`, and `LEDGER_OWNER_EMAIL` on the web service.
 5. Railway uses the `Procfile` (`gunicorn app:app`) and `railway.toml` (runs `flask db upgrade` before deploy).
 
 Health check: `GET /health`
@@ -79,12 +90,14 @@ python scripts/generate_icons.py
 ## Project layout
 
 ```
-app.py              Flask routes
+app.py              Flask routes + preferences API
+auth.py             Flask-Login, password helpers
 config.py           Environment config
-models.py           Entry model (polymorphic JSON payloads)
+models.py           User, UserPreference, Entry
 helpers.py          Form parsing, summaries, workflow helpers
 constants.py        Entry types, emotion wheel, skills lookup
 templates/          Jinja templates + macros
-static/             Logo, icons, favicon
+static/             Logo, icons, favicon, ledger_prefs.js
 migrations/         Alembic migrations
+scripts/demo_user.py  Reset demo blank-slate user
 ```

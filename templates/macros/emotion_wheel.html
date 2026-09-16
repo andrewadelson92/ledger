@@ -86,7 +86,11 @@
     rows.push({ name: '', intensity: Math.min(3, maxIntensity) });
   }
 
+  let savedEmotionsCache = null;
+  let savedEmotionsReady = null;
+
   function loadSaved() {
+    if (savedEmotionsCache) return savedEmotionsCache.slice();
     try {
       const raw = localStorage.getItem(storageKey);
       const parsed = JSON.parse(raw || '[]');
@@ -97,8 +101,33 @@
   }
 
   function saveSaved(list) {
+    savedEmotionsCache = list.slice();
     localStorage.setItem(storageKey, JSON.stringify(list));
     window.dispatchEvent(new CustomEvent('ledger-saved-emotions-changed'));
+    if (window.LedgerPrefs) {
+      window.LedgerPrefs.saveEmotions(list);
+    }
+  }
+
+  function ensureSavedLoaded(cb) {
+    if (savedEmotionsCache) {
+      cb(savedEmotionsCache.slice());
+      return;
+    }
+    if (!window.LedgerPrefs) {
+      savedEmotionsCache = loadSaved();
+      cb(savedEmotionsCache.slice());
+      return;
+    }
+    if (!savedEmotionsReady) {
+      savedEmotionsReady = window.LedgerPrefs.loadEmotions().then(function(items) {
+        savedEmotionsCache = items;
+        return items;
+      });
+    }
+    savedEmotionsReady.then(function(items) {
+      cb(items.slice());
+    });
   }
 
   function isBuiltinEmotion(name) {
@@ -510,11 +539,24 @@
   }
 
   if (!intensityOnly) {
-    window.addEventListener('ledger-saved-emotions-changed', function() {
+    ensureSavedLoaded(function() {
       renderRows();
     });
+    window.addEventListener('ledger-saved-emotions-changed', function() {
+      if (window.LedgerPrefs) {
+        window.LedgerPrefs.loadEmotions().then(function(items) {
+          savedEmotionsCache = items;
+          renderRows();
+        });
+      } else {
+        renderRows();
+      }
+    });
     window.addEventListener('storage', function(e) {
-      if (e.key === storageKey) renderRows();
+      if (e.key === storageKey) {
+        savedEmotionsCache = null;
+        renderRows();
+      }
     });
   }
 

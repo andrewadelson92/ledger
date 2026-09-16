@@ -75,7 +75,10 @@
     });
   } catch (e) {}
 
+  let behaviorsCache = null;
+
   function loadBehaviors() {
+    if (behaviorsCache) return behaviorsCache.slice();
     try {
       const raw = localStorage.getItem(storageKey);
       const parsed = JSON.parse(raw || '[]');
@@ -100,12 +103,52 @@
         }
       });
       if (changed) {
-        localStorage.setItem(storageKey, JSON.stringify(list));
+        saveBehaviorsLocal(list);
       }
-      return list;
+      behaviorsCache = list;
+      return list.slice();
     } catch (e) {
       return (defaultBehaviors || []).slice();
     }
+  }
+
+  function saveBehaviorsLocal(list) {
+    behaviorsCache = list.slice();
+    localStorage.setItem(storageKey, JSON.stringify(list));
+    if (window.LedgerPrefs) {
+      window.LedgerPrefs.saveTargetBehaviors(list);
+    }
+  }
+
+  function ensureBehaviorsLoaded(cb) {
+    if (!window.LedgerPrefs) {
+      cb(loadBehaviors());
+      return;
+    }
+    window.LedgerPrefs.loadTargetBehaviors().then(function(items) {
+      let list = items.filter(Boolean);
+      const renamed = [];
+      list.forEach(function(behavior) {
+        if ((behavior || '').toLowerCase() === 'social media') {
+          if (!renamed.some(function(b) { return b.toLowerCase() === 'porn'; })) {
+            renamed.push('Porn');
+          }
+        } else {
+          renamed.push(behavior);
+        }
+      });
+      list = renamed;
+      (defaultBehaviors || []).forEach(function(name) {
+        if (!list.some(function(b) { return b.toLowerCase() === name.toLowerCase(); })) {
+          list.push(name);
+        }
+      });
+      behaviorsCache = list;
+      localStorage.setItem(storageKey, JSON.stringify(list));
+      cb(list.slice());
+    }).catch(function() {
+      cb(loadBehaviors());
+    });
   }
 
   function escapeHtml(value) {
@@ -206,6 +249,10 @@
     syncHidden();
   }
 
+  ensureBehaviorsLoaded(function() {
+    populateSelect();
+  });
+
   const form = container.closest('form');
   if (form) {
     form.addEventListener('submit', syncHidden);
@@ -266,10 +313,17 @@
   } catch (e) {}
 
   function saveBehaviors(list) {
+    behaviorsCache = list.slice();
     localStorage.setItem(storageKey, JSON.stringify(list));
+    if (window.LedgerPrefs) {
+      window.LedgerPrefs.saveTargetBehaviors(list);
+    }
   }
 
+  let behaviorsCache = null;
+
   function loadBehaviors() {
+    if (behaviorsCache) return behaviorsCache.slice();
     try {
       const raw = localStorage.getItem(storageKey);
       const parsed = JSON.parse(raw || '[]');
@@ -286,7 +340,8 @@
       if (changed) {
         saveBehaviors(list);
       }
-      return list;
+      behaviorsCache = list;
+      return list.slice();
     } catch (e) {
       return (defaultBehaviors || []).slice();
     }
@@ -405,6 +460,22 @@
   });
 
   render();
+
+  if (window.LedgerPrefs) {
+    window.LedgerPrefs.loadTargetBehaviors().then(function(items) {
+      let list = (items || []).filter(Boolean);
+      const renamed = renameBehavior(list, 'Social media', 'Porn');
+      list = renamed.list;
+      (defaultBehaviors || []).forEach(function(name) {
+        if (!list.some(function(b) { return b.toLowerCase() === name.toLowerCase(); })) {
+          list.push(name);
+        }
+      });
+      behaviorsCache = list;
+      localStorage.setItem(storageKey, JSON.stringify(list));
+      render();
+    });
+  }
 
   const form = container.closest('form');
   if (form) {
