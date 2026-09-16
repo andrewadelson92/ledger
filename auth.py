@@ -68,6 +68,7 @@ def get_or_create_preferences(user_id: int | None = None) -> UserPreference:
             saved_emotions=[],
             saved_skills=[],
             target_behaviors=[],
+            show_feelings_wheel=True,
         )
         db.session.add(prefs)
         db.session.commit()

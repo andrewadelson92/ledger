@@ -8,6 +8,25 @@
 {% block content %}
 <h1 class="text-xl font-semibold text-zinc-900 mb-6">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
 
+{% if show_feelings_wheel %}
+<details class="mb-6 rounded-lg border border-zinc-200 bg-white open:shadow-sm" open>
+  <summary class="cursor-pointer list-none px-4 py-3 text-sm font-medium text-zinc-800 marker:content-none flex items-center justify-between gap-3">
+    <span>Feelings wheel reference</span>
+    <span class="text-xs font-normal text-zinc-500">Tap to hide</span>
+  </summary>
+  <div class="border-t border-zinc-100 px-4 py-4">
+    <p class="mb-3 text-sm text-zinc-600">Use this to find a more precise word, then choose it below.</p>
+    <img
+      src="{{ url_for('static', filename='feelings-wheel.jpg') }}"
+      alt="Feelings wheel with primary emotions and more specific feelings"
+      class="mx-auto w-full max-w-lg rounded-md border border-zinc-200 bg-white"
+      loading="lazy"
+      decoding="async"
+    >
+  </div>
+</details>
+{% endif %}
+
 <form method="post"
   action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
   class="space-y-6">

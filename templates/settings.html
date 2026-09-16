@@ -9,10 +9,34 @@
 
   <div class="rounded-lg border border-zinc-200 bg-white">
     <div class="border-b border-zinc-200 px-4 py-3">
+      <h2 class="text-sm font-semibold">Display</h2>
+      <p class="mt-1 text-sm text-zinc-600">Choose what shows on Emotion Check-In.</p>
+    </div>
+    <form method="post" action="{{ url_for('settings') }}" class="px-4 py-4 space-y-4">
+      <input type="hidden" name="form_kind" value="display">
+      <label class="flex items-start gap-3 text-sm text-zinc-800">
+        <input type="checkbox" name="show_feelings_wheel" value="1"
+          class="mt-0.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-400"
+          {% if show_feelings_wheel %}checked{% endif %}>
+        <span>
+          <span class="font-medium text-zinc-900">Show feelings wheel</span>
+          <span class="mt-0.5 block text-zinc-600">Reference image on Emotion Check-In to help locate a feeling word.</span>
+        </span>
+      </label>
+      <button type="submit"
+        class="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50">
+        Save
+      </button>
+    </form>
+  </div>
+
+  <div class="rounded-lg border border-zinc-200 bg-white">
+    <div class="border-b border-zinc-200 px-4 py-3">
       <h2 class="text-sm font-semibold">Invite someone</h2>
       <p class="mt-1 text-sm text-zinc-600">Ledger is invite-only. Create a link for one email address.</p>
     </div>
     <form method="post" action="{{ url_for('settings') }}" class="px-4 py-4 flex flex-wrap items-end gap-3">
+      <input type="hidden" name="form_kind" value="invite">
       <div class="min-w-[12rem] flex-1">
         <label class="block text-sm font-medium text-zinc-900">Email</label>
         <input type="email" name="invite_email" required placeholder="friend@example.com"

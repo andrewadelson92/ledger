@@ -276,7 +276,7 @@ def index():
     add_options = [
         {"type": t, "label": HOME_ADD_LABELS.get(t, ENTRY_TYPE_LABELS[t])}
         for t in ENTRY_TYPES
-        if t not in ADD_HIDDEN_TYPES
+        if t not in ADD_HIDDEN_TYPES and t != "daily_planner"
     ]
     today_label = datetime.now(LOCAL_TZ).strftime("%A, %b %d")
     return render_template(
@@ -434,6 +434,9 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
             ctx["journal_payload"] = {"text": journal_payload.get("text", "")}
         else:
             ctx["journal_payload"] = {}
+    if entry_type == "checkin":
+        prefs = get_or_create_preferences()
+        ctx["show_feelings_wheel"] = bool(prefs.show_feelings_wheel)
     return ctx
 
 
@@ -980,7 +983,16 @@ def logout():
 
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
+    prefs = get_or_create_preferences()
     if request.method == "POST":
+        form_kind = (request.form.get("form_kind") or "invite").strip()
+        if form_kind == "display":
+            prefs.show_feelings_wheel = request.form.get("show_feelings_wheel") == "1"
+            prefs.updated_at = datetime.utcnow()
+            db.session.commit()
+            flash("Display settings saved.")
+            return redirect(url_for("settings"))
+
         invite_email = (request.form.get("invite_email") or "").strip().lower()
         if not invite_email:
             flash("Enter an email for the invite.")
@@ -1009,7 +1021,11 @@ def settings():
         .order_by(Invite.created_at.desc())
         .all()
     )
-    return render_template("settings.html", pending_invites=pending_invites)
+    return render_template(
+        "settings.html",
+        pending_invites=pending_invites,
+        show_feelings_wheel=bool(prefs.show_feelings_wheel),
+    )
 
 
 @app.route("/settings/invite/<int:invite_id>/cancel", methods=["POST"])
