@@ -28,7 +28,7 @@ if _is_demo:
 
 from db import db
 from config import load_config
-from models import Entry, User, UserPreference
+from models import Entry, Invite, User, UserPreference
 from flask_login import login_user, logout_user, current_user
 from auth import (
     login_manager,
@@ -39,6 +39,9 @@ from auth import (
     set_password,
     check_password,
     get_or_create_preferences,
+    create_invite,
+    validate_invite_token,
+    cancel_invite,
 )
 from constants import (
     ENTRY_TYPES,
@@ -634,7 +637,30 @@ def mantras_invoke():
         flash("Mantra not found.")
         return redirect(url_for("mantras_hub"))
     event = _log_mantra_event("invoke", match["id"], match["text"], journal)
-    flash("Mantra invoked for today.")
+    flash("Mantra set as today’s focus.")
+    return redirect(url_for("entry_detail", entry_id=event.id))
+
+
+@app.route("/mantras/edit", methods=["POST"])
+def mantras_edit():
+    mantra_id = (request.form.get("mantra_id") or "").strip()
+    text = (request.form.get("text") or "").strip()
+    journal = (request.form.get("journal") or "").strip()
+    if not text:
+        flash("Mantra text is required.")
+        return redirect(url_for("mantras_hub"))
+    library = _ensure_mantras_library()
+    items = mantra_library_items(library.payload)
+    match = next((i for i in items if i["id"] == mantra_id), None)
+    if not match:
+        flash("Mantra not found.")
+        return redirect(url_for("mantras_hub"))
+    match["text"] = text
+    library.payload = {"items": items}
+    _touch_entry(library)
+    db.session.commit()
+    event = _log_mantra_event("edit", match["id"], text, journal)
+    flash("Mantra updated.")
     return redirect(url_for("entry_detail", entry_id=event.id))
 
 
@@ -950,6 +976,83 @@ def logout():
     logout_user()
     flash("Signed out.")
     return redirect(url_for("login"))
+
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    if request.method == "POST":
+        invite_email = (request.form.get("invite_email") or "").strip().lower()
+        if not invite_email:
+            flash("Enter an email for the invite.")
+            return redirect(url_for("settings"))
+        if "@" not in invite_email:
+            flash("Enter a valid email for the invite.")
+            return redirect(url_for("settings"))
+        existing_user = User.query.filter_by(email=invite_email).first()
+        if existing_user is not None:
+            flash("That email already has an account.")
+            return redirect(url_for("settings"))
+        pending = Invite.query.filter_by(
+            email=invite_email, used_at=None
+        ).filter(Invite.expires_at > datetime.utcnow()).first()
+        if pending is not None:
+            invite_url = url_for("register", token=pending.token, _external=True)
+            flash(f"An invite for {invite_email} is already pending. Share this link: {invite_url}")
+            return redirect(url_for("settings"))
+        invite = create_invite(invite_email, uid())
+        invite_url = url_for("register", token=invite.token, _external=True)
+        flash(f"Invite created for {invite_email}. Share this link: {invite_url}")
+        return redirect(url_for("settings"))
+
+    pending_invites = (
+        Invite.query.filter_by(created_by_user_id=uid(), used_at=None)
+        .order_by(Invite.created_at.desc())
+        .all()
+    )
+    return render_template("settings.html", pending_invites=pending_invites)
+
+
+@app.route("/settings/invite/<int:invite_id>/cancel", methods=["POST"])
+def cancel_invite_route(invite_id: int):
+    inv = cancel_invite(invite_id, uid())
+    if inv is None:
+        flash("Invite not found or already used.")
+    else:
+        flash(f"Invite cancelled for {inv.email}.")
+    return redirect(url_for("settings"))
+
+
+@app.route("/register/<token>", methods=["GET", "POST"])
+def register(token: str):
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    invite = validate_invite_token(token)
+    if invite is None:
+        flash("This invite link is invalid or expired.")
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        password = request.form.get("password") or ""
+        confirm = request.form.get("password_confirm") or ""
+        if len(password) < 8:
+            flash("Password must be at least 8 characters.")
+            return render_template("register.html", token=token, invite_email=invite.email), 400
+        if password != confirm:
+            flash("Passwords do not match.")
+            return render_template("register.html", token=token, invite_email=invite.email), 400
+        existing = User.query.filter_by(email=invite.email).first()
+        if existing is not None:
+            flash("An account with this email already exists. Sign in instead.")
+            return redirect(url_for("login"))
+        user = User(email=invite.email, is_active=True)
+        set_password(user, password)
+        db.session.add(user)
+        invite.used_at = datetime.utcnow()
+        db.session.commit()
+        login_user(user, remember=True)
+        get_or_create_preferences(user.id)
+        flash("Account created.")
+        return redirect(url_for("index"))
+    return render_template("register.html", token=token, invite_email=invite.email)
 
 
 @app.route("/setup-password", methods=["GET", "POST"])

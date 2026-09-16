@@ -48,6 +48,22 @@ class UserPreference(db.Model):
     user = db.relationship("User", lazy=True)
 
 
+class Invite(db.Model):
+    """Email invite token — invitee sets their own password via /register/<token>."""
+
+    __tablename__ = "invites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False)
+    token = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+
+    created_by = db.relationship("User", lazy=True)
+
+
 class Entry(db.Model):
     __tablename__ = "entries"
 

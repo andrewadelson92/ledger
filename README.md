@@ -15,7 +15,7 @@ Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL on Railway.
 | Diary Card | Legacy; diary is now part of Today |
 | Skill Used | DBT module + skill |
 | Thought Record | Before/after emotions with reframing fields |
-| Mantras | Add, invoke for today, or delete; each action is logged |
+| Mantras | Add, set as today’s focus, or delete; each action is logged |
 | Opposite Action | Emotion + urge, fit-the-facts check, opposite action, before/after emotions |
 | ABC Worksheet | Activating event, belief, consequence |
 | Behavioral Activation | Two-step: plan joy/sadness levels → complete after activity |
@@ -50,6 +50,10 @@ python app.py demo clear    # wipe demo DB and recreate blank user
 ```
 
 Sign in as `demo@localhost` / `demopass123`. Demo never touches your personal database.
+
+### Inviting users
+
+Any signed-in user can open **Settings** → enter an email → **Create invite link**. Share the `/register/<token>` URL; the invitee sets their own password (7-day expiry). No email is sent automatically.
 
 ## Environment variables
 
@@ -91,9 +95,9 @@ python scripts/generate_icons.py
 
 ```
 app.py              Flask routes + preferences API
-auth.py             Flask-Login, password helpers
+auth.py             Flask-Login, invites, password helpers
 config.py           Environment config
-models.py           User, UserPreference, Entry
+models.py           User, Invite, UserPreference, Entry
 helpers.py          Form parsing, summaries, workflow helpers
 constants.py        Entry types, emotion wheel, skills lookup
 templates/          Jinja templates + macros

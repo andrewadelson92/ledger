@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block document_title %}Settings · Ledger{% endblock %}
+{% block content %}
+<section class="space-y-6">
+  <div>
+    <h1 class="text-xl font-semibold tracking-tight">Settings</h1>
+    <p class="mt-1 text-sm text-zinc-600">Signed in as {{ current_user.email }}</p>
+  </div>
+
+  <div class="rounded-lg border border-zinc-200 bg-white">
+    <div class="border-b border-zinc-200 px-4 py-3">
+      <h2 class="text-sm font-semibold">Invite someone</h2>
+      <p class="mt-1 text-sm text-zinc-600">Ledger is invite-only. Create a link for one email address.</p>
+    </div>
+    <form method="post" action="{{ url_for('settings') }}" class="px-4 py-4 flex flex-wrap items-end gap-3">
+      <div class="min-w-[12rem] flex-1">
+        <label class="block text-sm font-medium text-zinc-900">Email</label>
+        <input type="email" name="invite_email" required placeholder="friend@example.com"
+          class="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200" />
+      </div>
+      <button type="submit"
+        class="inline-flex items-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50">
+        Create invite link
+      </button>
+    </form>
+    {% if pending_invites and pending_invites|length > 0 %}
+    <div class="border-t border-zinc-200 px-4 py-3">
+      <p class="text-xs font-medium uppercase tracking-wide text-zinc-500">Pending invites</p>
+      <ul class="mt-2 space-y-3">
+        {% for inv in pending_invites %}
+        <li class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between text-sm text-zinc-700">
+          <div class="min-w-0 space-y-1">
+            <div>
+              <span class="font-medium text-zinc-900">{{ inv.email }}</span>
+              <span class="text-xs text-zinc-500"> · expires {{ inv.expires_at|fmt_date if inv.expires_at else 'soon' }}</span>
+            </div>
+            <p class="break-all text-xs text-zinc-500">{{ url_for('register', token=inv.token, _external=True) }}</p>
+          </div>
+          <form method="post" action="{{ url_for('cancel_invite_route', invite_id=inv.id) }}" class="shrink-0">
+            <button type="submit" class="text-xs font-medium text-zinc-600 hover:text-zinc-900">
+              Cancel
+            </button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

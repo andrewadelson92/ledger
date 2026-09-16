@@ -87,7 +87,8 @@ def entry_log_label(entry) -> str:
         action = (p.get("action") or "").strip()
         return {
             "add": "Mantra added",
-            "invoke": "Mantra invoked",
+            "invoke": "Mantra · today’s focus",
+            "edit": "Mantra edited",
             "delete": "Mantra deleted",
         }.get(action, "Mantra")
     if entry.type == "behavioral_activation" and behavioral_activation_needs_outcome(p):
@@ -175,7 +176,7 @@ def entry_summary(entry) -> str:
     if t == "mantra_event":
         text = _truncate(p.get("text"), 60)
         action = (p.get("action") or "").strip()
-        verb = {"add": "Added", "invoke": "Invoked", "delete": "Deleted"}.get(action, "Mantra")
+        verb = {"add": "Added", "invoke": "Today’s focus", "edit": "Edited", "delete": "Deleted"}.get(action, "Mantra")
         if text:
             return f"{verb}: {text}"
         return verb
@@ -631,8 +632,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "situation": (form.get("situation") or "").strip(),
             "automatic_thought": (form.get("automatic_thought") or "").strip(),
             "emotions": parse_emotions_json(form.get("emotions_before_json"), "intensity_before"),
-            "evidence_for": (form.get("evidence_for") or "").strip(),
-            "evidence_against": (form.get("evidence_against") or "").strip(),
+            "validity": (form.get("validity") or "").strip(),
             "alternative_thought": (form.get("alternative_thought") or "").strip(),
             "emotions_after": parse_emotions_json(form.get("emotions_after_json"), "intensity_after"),
         }

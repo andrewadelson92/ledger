@@ -28,13 +28,13 @@
   </div>
 
   <div>
-    {{ field_label('Evidence for the thought') }}
-    {{ text_input('evidence_for', payload.evidence_for or '', rows=3) }}
-  </div>
-
-  <div>
-    {{ field_label('Evidence against the thought') }}
-    {{ text_input('evidence_against', payload.evidence_against or '', rows=3) }}
+    {{ field_label('Assessing the validity of the thought') }}
+    {{ text_input(
+         'validity',
+         payload.validity or ([payload.evidence_for, payload.evidence_against]|select|join('\n\n')),
+         rows=4,
+         placeholder='What supports or challenges this thought?'
+       ) }}
   </div>
 
   <div>

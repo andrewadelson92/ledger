@@ -20,9 +20,13 @@
         Ledger
       </a>
       {% if current_user.is_authenticated %}
-      <form method="post" action="{{ url_for('logout') }}">
-        <button type="submit" class="text-sm text-zinc-600 hover:text-zinc-900">Sign out</button>
-      </form>
+      <div class="flex min-w-0 items-center gap-3">
+        <span class="min-w-0 truncate text-sm text-zinc-500" title="{{ current_user.email }}">{{ current_user.email }}</span>
+        <a href="{{ url_for('settings') }}" class="shrink-0 text-sm text-zinc-600 hover:text-zinc-900">Settings</a>
+        <form method="post" action="{{ url_for('logout') }}" class="shrink-0">
+          <button type="submit" class="text-sm text-zinc-600 hover:text-zinc-900">Sign out</button>
+        </form>
+      </div>
       {% endif %}
     </div>
   </header>
