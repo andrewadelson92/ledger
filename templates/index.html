@@ -2,21 +2,6 @@
 {% block document_title %}Ledger · Home{% endblock %}
 
 {% block content %}
-<nav class="mb-6 flex border-b border-zinc-200" aria-label="Home sections">
-  <a href="{{ url_for('index', tab='today') }}"
-     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {% if tab == 'today' %}border-zinc-900 text-zinc-900{% else %}border-transparent text-zinc-600 hover:text-zinc-900{% endif %}">
-    Today
-  </a>
-  <a href="{{ url_for('index', tab='add') }}"
-     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {% if tab == 'add' %}border-zinc-900 text-zinc-900{% else %}border-transparent text-zinc-600 hover:text-zinc-900{% endif %}">
-    Add
-  </a>
-  <a href="{{ url_for('index', tab='log') }}"
-     class="px-4 py-2 text-sm font-medium border-b-2 -mb-px {% if tab == 'log' %}border-zinc-900 text-zinc-900{% else %}border-transparent text-zinc-600 hover:text-zinc-900{% endif %}">
-    Log
-  </a>
-</nav>
-
 {% if tab == 'today' %}
 <div class="space-y-8">
   <p class="text-sm text-zinc-600">{{ today_label }}</p>

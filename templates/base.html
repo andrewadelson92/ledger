@@ -12,18 +12,36 @@
 </head>
 <body class="bg-zinc-50 text-zinc-900">
   <header class="border-b border-zinc-200 bg-white">
-    <div class="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:py-4">
-      <a href="{{ url_for('index') }}"
-         class="inline-flex items-center gap-2.5 text-lg font-semibold tracking-tight text-zinc-900 hover:text-zinc-700">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt=""
-          class="h-9 w-9 shrink-0 object-contain" width="36" height="36">
-        Ledger
-      </a>
+    <div class="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+      <div class="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+        <a href="{{ url_for('index', tab='today') }}"
+           class="inline-flex shrink-0 items-center gap-2.5 text-lg font-semibold tracking-tight text-zinc-900 hover:text-zinc-700">
+          <img src="{{ url_for('static', filename='logo.png') }}" alt=""
+            class="h-9 w-9 shrink-0 object-contain" width="36" height="36">
+          Ledger
+        </a>
+        {% if current_user.is_authenticated %}
+        <nav class="flex items-center gap-1" aria-label="Primary">
+          <a href="{{ url_for('index', tab='today') }}"
+             class="px-2.5 py-1 text-sm font-medium {% if nav_tab == 'today' %}text-zinc-900 underline decoration-2 underline-offset-8{% else %}text-zinc-600 hover:text-zinc-900{% endif %}">
+            Today
+          </a>
+          <a href="{{ url_for('index', tab='add') }}"
+             class="px-2.5 py-1 text-sm font-medium {% if nav_tab == 'add' %}text-zinc-900 underline decoration-2 underline-offset-8{% else %}text-zinc-600 hover:text-zinc-900{% endif %}">
+            Add
+          </a>
+          <a href="{{ url_for('index', tab='log') }}"
+             class="px-2.5 py-1 text-sm font-medium {% if nav_tab == 'log' %}text-zinc-900 underline decoration-2 underline-offset-8{% else %}text-zinc-600 hover:text-zinc-900{% endif %}">
+            Log
+          </a>
+        </nav>
+        {% endif %}
+      </div>
       {% if current_user.is_authenticated %}
       <div class="flex min-w-0 items-center gap-3">
         <a href="{{ url_for('settings') }}" class="shrink-0 text-sm text-zinc-600 hover:text-zinc-900">Settings</a>
         <form method="post" action="{{ url_for('logout') }}" class="min-w-0 shrink">
-          <button type="submit" class="max-w-full truncate text-sm text-zinc-600 hover:text-zinc-900" title="{{ current_user.email }}">
+          <button type="submit" class="max-w-[14rem] truncate text-sm text-zinc-600 hover:text-zinc-900 sm:max-w-xs" title="{{ current_user.email }}">
             Sign out ({{ current_user.email }})
           </button>
         </form>

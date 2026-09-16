@@ -139,6 +139,11 @@ def inject_globals():
             target_behaviors = list(prefs.target_behaviors)
         if prefs.diary_emotions:
             diary_emotions = list(prefs.diary_emotions)
+    nav_tab = None
+    if request.endpoint == "index":
+        nav_tab = (request.args.get("tab") or "today").strip().lower()
+        if nav_tab not in ("today", "log", "add"):
+            nav_tab = "today"
     return {
         "entry_type_labels": ENTRY_TYPE_LABELS,
         "skill_module_labels": SKILL_MODULE_LABELS,
@@ -146,6 +151,7 @@ def inject_globals():
         "emotion_wheel": EMOTION_WHEEL,
         "default_target_behaviors": target_behaviors,
         "diary_card_emotions": diary_emotions,
+        "nav_tab": nav_tab,
         "chain_link_type_label": chain_link_type_label,
         "diary_card_emotion_values": diary_card_emotion_values,
         "diary_card_extra_emotions": diary_card_extra_emotions,
