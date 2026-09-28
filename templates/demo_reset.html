@@ -1,0 +1,21 @@
+{% extends "auth_base.html" %}
+{% block title %}Demo reset · Ledger{% endblock %}
+{% block content %}
+<section class="rounded-lg border border-zinc-200 bg-white p-6 text-center">
+  <h2 class="text-base font-semibold">Demo reset</h2>
+  <p class="mt-2 text-sm text-zinc-600">Clearing local picker cache and returning to Today…</p>
+</section>
+<script>
+(function() {
+  [
+    'ledger_saved_emotions',
+    'ledger_saved_skills',
+    'ledger_target_behaviors',
+    'ledger_diary_emotions'
+  ].forEach(function(key) {
+    try { localStorage.removeItem(key); } catch (e) {}
+  });
+  window.location.replace({{ url_for('index', tab='today')|tojson }});
+})();
+</script>
+{% endblock %}

@@ -7,6 +7,25 @@
     <p class="mt-1 text-sm text-zinc-600">Signed in as {{ current_user.email }}</p>
   </div>
 
+  {% if is_demo %}
+  <div class="rounded-lg border border-zinc-300 bg-zinc-100">
+    <div class="border-b border-zinc-300 px-4 py-3">
+      <h2 class="text-sm font-semibold">Demo</h2>
+      <p class="mt-1 text-sm text-zinc-600">
+        Running on the separate demo database. Reset before each walkthrough — your personal Ledger data is untouched.
+      </p>
+    </div>
+    <form method="post" action="{{ url_for('demo_reset') }}" class="px-4 py-4"
+      onsubmit="return confirm('Reset the demo to a blank slate? All demo entries and invites will be deleted.');">
+      <button type="submit"
+        class="inline-flex items-center rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+        Reset demo
+      </button>
+      <p class="mt-2 text-xs text-zinc-500">Sign-in stays {{ demo_user_email }} / demopass123</p>
+    </form>
+  </div>
+  {% endif %}
+
   <div class="rounded-lg border border-zinc-200 bg-white">
     <div class="border-b border-zinc-200 px-4 py-3">
       <h2 class="text-sm font-semibold">Tracked emotions &amp; target behaviors</h2>

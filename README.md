@@ -44,12 +44,15 @@ flask db upgrade
 ### Demo mode (blank slate, separate DB)
 
 ```bash
+source .venv/bin/activate
 python app.py demo          # uses instance/demo_ledger.db
-python app.py demo clear    # wipe demo DB and recreate blank user
-# or: python scripts/demo_user.py reset
+# first-time / hard wipe from the terminal:
+python app.py demo clear
 ```
 
-Sign in as `demo@localhost` / `demopass123`. Demo never touches your personal database.
+Open [http://127.0.0.1:5002](http://127.0.0.1:5002). Sign in as `demo@localhost` / `demopass123`.
+
+Between walkthroughs: **Settings → Reset demo** (demo mode only). That wipes demo entries/invites/prefs, restores the blank demo user, and clears browser picker cache. Your personal `ledger.db` is never touched.
 
 ### Inviting users
 

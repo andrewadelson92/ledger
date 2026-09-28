@@ -48,14 +48,9 @@ BEHAVIORAL_ACTIVATION_EMOTIONS = [
     {"key": "sadness", "label": "Sadness"},
 ]
 
-# Fixed emotions for diary card (intensity 1–5 each)
+# Default tracked emotions for Today / diary card (intensity 1–5 each)
 DIARY_CARD_EMOTIONS = [
-    "Anxious",
-    "Sad",
-    "Overwhelmed",
     "Content",
-    "Energized",
-    "Numb",
 ]
 
 # Default target behaviors for diary card + check-in urge pickers

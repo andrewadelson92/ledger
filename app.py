@@ -170,6 +170,8 @@ def inject_globals():
         "daily_planner_focus": daily_planner_focus,
         "daily_planner_has_diary": daily_planner_has_diary,
         "current_user": current_user,
+        "is_demo": _is_demo,
+        "demo_user_email": DEMO_USER_EMAIL if _is_demo else None,
     }
 
 
@@ -222,6 +224,8 @@ def _running_flask_db_command() -> bool:
 
 def _ensure_demo_blank_user() -> User:
     """Local demo only: ensure a blank-slate login exists on the demo DB."""
+    from constants import DEFAULT_TARGET_BEHAVIORS, DIARY_CARD_EMOTIONS
+
     user = User.query.filter_by(email=DEMO_USER_EMAIL).first()
     if user is None:
         user = User(email=DEMO_USER_EMAIL, is_active=True)
@@ -230,8 +234,25 @@ def _ensure_demo_blank_user() -> User:
     set_password(user, DEMO_USER_PASSWORD)
     user.is_active = True
     db.session.commit()
-    get_or_create_preferences(user.id)
+    prefs = get_or_create_preferences(user.id)
+    prefs.saved_emotions = []
+    prefs.saved_skills = []
+    prefs.target_behaviors = list(DEFAULT_TARGET_BEHAVIORS)
+    prefs.diary_emotions = list(DIARY_CARD_EMOTIONS)
+    prefs.show_feelings_wheel = True
+    prefs.updated_at = datetime.utcnow()
+    db.session.commit()
     return user
+
+
+def _reset_demo_database() -> User:
+    """Wipe the demo DB contents and recreate the blank demo login."""
+    Entry.query.delete()
+    Invite.query.delete()
+    UserPreference.query.delete()
+    User.query.delete()
+    db.session.commit()
+    return _ensure_demo_blank_user()
 
 
 with app.app_context():
@@ -1071,6 +1092,18 @@ def settings():
         diary_emotions_text="\n".join(prefs.diary_emotions or []),
         target_behaviors_text="\n".join(prefs.target_behaviors or []),
     )
+
+
+@app.route("/demo/reset", methods=["POST"])
+def demo_reset():
+    """Blank-slate the separate demo DB. Never available outside demo mode."""
+    if not _is_demo:
+        abort(404)
+    user = _reset_demo_database()
+    logout_user()
+    login_user(user, remember=True)
+    flash("Demo reset. Blank slate ready.")
+    return render_template("demo_reset.html")
 
 
 def _parse_lines_list(raw: str | None) -> list[str]:
