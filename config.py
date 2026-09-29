@@ -5,8 +5,10 @@ _APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def _normalize_database_url(url: str) -> str:
-    if url.startswith("postgres://"):
-        return url.replace("postgres://", "postgresql://", 1)
+    # SQLAlchemy 2.1+ defaults bare postgresql:// to psycopg (v3); we ship psycopg2.
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
     return url
 
 
