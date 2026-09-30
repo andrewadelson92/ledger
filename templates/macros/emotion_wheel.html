@@ -1,4 +1,4 @@
-{% macro emotion_wheel_picker(wheel, hidden_input_name, initial_emotions=[], intensity_key='intensity', max_intensity=5, start_empty=false, add_label='Add emotion', mirror_from=none, show_picker_hint=true, show_intensity=true, exclude_emotions=[]) %}
+{% macro emotion_wheel_picker(wheel, hidden_input_name, initial_emotions=[], intensity_key='intensity', max_intensity=5, start_empty=false, add_label='Add emotion', mirror_from=none, show_picker_hint=true, show_intensity=true, exclude_emotions=[], optional_intensity=false) %}
 <div class="emotion-picker"
   data-hidden-name="{{ hidden_input_name }}"
   data-intensity-key="{{ intensity_key }}"
@@ -6,6 +6,7 @@
   data-storage-key="ledger_saved_emotions"
   data-start-empty="{{ 'true' if start_empty else 'false' }}"
   data-show-intensity="{{ 'true' if show_intensity else 'false' }}"
+  data-optional-intensity="{{ 'true' if optional_intensity else 'false' }}"
   {% if mirror_from %}data-mirror-from="{{ mirror_from }}" data-intensity-only="true"{% endif %}>
 
   {% if not start_empty and show_picker_hint and not mirror_from %}
@@ -40,6 +41,8 @@
   const mirrorFromId = container.dataset.mirrorFrom || '';
   const intensityOnly = container.dataset.intensityOnly === 'true';
   const showIntensity = container.dataset.showIntensity !== 'false';
+  const optionalIntensity = !showIntensity && container.dataset.optionalIntensity === 'true';
+  const defaultIntensity = optionalIntensity ? null : Math.min(3, maxIntensity);
   const hidden = container.querySelector('input[type="hidden"]');
   const rowsWrap = container.querySelector('.emotion-rows');
   const addBtn = container.querySelector('.add-emotion-row');
@@ -68,7 +71,7 @@
       if (e.name) {
         rows.push({
           name: e.name,
-          intensity: e[intensityKey] || e.intensity || Math.min(3, maxIntensity),
+          intensity: e[intensityKey] || e.intensity || defaultIntensity,
         });
       }
     });
@@ -83,7 +86,7 @@
     });
     rows = [];
   } else if (rows.length === 0 && !startEmpty) {
-    rows.push({ name: '', intensity: Math.min(3, maxIntensity) });
+    rows.push({ name: '', intensity: defaultIntensity });
   }
 
   let savedEmotionsCache = null;
@@ -197,7 +200,7 @@
       .filter(function(r) { return (r.name || '').trim(); })
       .map(function(r) {
         const o = { name: r.name.trim() };
-        if (showIntensity) {
+        if (showIntensity || (optionalIntensity && r.intensity)) {
           o[intensityKey] = r.intensity;
         }
         return o;
@@ -400,6 +403,9 @@
         (hasName
           ? '<div class="flex items-center gap-3">' +
               '<button type="button" class="change-emotion text-xs text-zinc-600 hover:text-zinc-900 underline">Change</button>' +
+              (optionalIntensity && !row.intensity
+                ? '<button type="button" class="add-intensity text-xs text-zinc-400 hover:text-zinc-700">+ intensity</button>'
+                : '') +
             '</div>'
           : '') +
         '<div class="emotion-picker-panel' + (hasName ? ' hidden' : '') + ' space-y-3">' +
@@ -423,7 +429,14 @@
               '<input type="range" min="1" max="' + maxIntensity + '" value="' + row.intensity + '" class="emotion-intensity flex-1 accent-zinc-900" aria-label="Intensity for ' + escapeHtml(row.name || 'emotion') + '">' +
               '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + row.intensity + '</span>' +
             '</div>'
-          : '');
+          : (optionalIntensity && hasName && row.intensity
+            ? '<div class="flex items-center gap-3 emotion-intensity-row">' +
+                '<span class="text-xs text-zinc-500 shrink-0">Intensity</span>' +
+                '<input type="range" min="1" max="' + maxIntensity + '" value="' + row.intensity + '" class="emotion-intensity flex-1 accent-zinc-900" aria-label="Intensity for ' + escapeHtml(row.name) + '">' +
+                '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + row.intensity + '</span>' +
+                '<button type="button" class="clear-intensity text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Remove intensity">&times;</button>' +
+              '</div>'
+            : ''));
 
       const search = el.querySelector('.emotion-search');
       const list = el.querySelector('.emotion-list');
@@ -486,6 +499,18 @@
         renderRows();
       });
 
+      el.querySelector('.add-intensity')?.addEventListener('click', function() {
+        row.intensity = Math.min(3, maxIntensity);
+        renderRows();
+        syncHidden();
+      });
+
+      el.querySelector('.clear-intensity')?.addEventListener('click', function() {
+        row.intensity = null;
+        renderRows();
+        syncHidden();
+      });
+
       el.querySelector('.remove-emotion-row')?.addEventListener('click', function() {
         rows.splice(index, 1);
         renderRows();
@@ -514,14 +539,14 @@
     rows[index].name = trimmed;
     rows[index]._showOther = false;
     rows[index]._otherText = '';
-    if (!rows[index].intensity) rows[index].intensity = Math.min(3, maxIntensity);
+    if (!rows[index].intensity) rows[index].intensity = defaultIntensity;
     renderRows();
     syncHidden();
   }
 
   if (addBtn) {
     addBtn.addEventListener('click', function() {
-      rows.push({ name: '', intensity: Math.min(3, maxIntensity), _picking: true });
+      rows.push({ name: '', intensity: defaultIntensity, _picking: true });
       renderRows();
     });
   }

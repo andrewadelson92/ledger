@@ -208,8 +208,8 @@
       const el = document.createElement('div');
       el.className = 'flex items-center gap-3 rounded-md border border-zinc-200 bg-white px-3 py-2';
       el.innerHTML =
-        '<span class="text-sm font-medium text-zinc-800 flex-1 min-w-0">' + escapeHtml(row.behavior) + '</span>' +
-        '<input type="range" min="1" max="5" value="' + row.intensity + '" class="urge-intensity w-32 accent-zinc-900" aria-label="Urge intensity for ' + escapeHtml(row.behavior) + '">' +
+        '<span class="text-sm font-medium text-zinc-800 w-28 shrink-0">' + escapeHtml(row.behavior) + '</span>' +
+        '<input type="range" min="1" max="5" value="' + row.intensity + '" class="urge-intensity flex-1 accent-zinc-900" aria-label="Urge intensity for ' + escapeHtml(row.behavior) + '">' +
         '<span class="text-sm text-zinc-600 w-6 text-center urge-val">' + row.intensity + '</span>' +
         '<button type="button" class="remove-urge text-zinc-400 hover:text-zinc-900 text-lg leading-none" aria-label="Remove ' + escapeHtml(row.behavior) + '">&times;</button>';
 
@@ -413,8 +413,8 @@
       row.className = 'urge-row flex items-center gap-3 rounded-md border border-zinc-200 bg-white px-3 py-2';
       row.dataset.behavior = behavior;
       row.innerHTML =
-        '<span class="text-sm font-medium text-zinc-800 flex-1 min-w-0">' + escapeHtml(behavior) + '</span>' +
-        '<input type="range" min="1" max="5" value="' + intensity + '" class="urge-intensity w-32 accent-zinc-900" aria-label="Urge intensity for ' + escapeHtml(behavior) + '">' +
+        '<span class="text-sm font-medium text-zinc-800 w-28 shrink-0">' + escapeHtml(behavior) + '</span>' +
+        '<input type="range" min="1" max="5" value="' + intensity + '" class="urge-intensity flex-1 accent-zinc-900" aria-label="Urge intensity for ' + escapeHtml(behavior) + '">' +
         '<span class="text-sm text-zinc-600 w-6 text-center urge-val">' + intensity + '</span>' +
         '<button type="button" class="remove-behavior text-zinc-400 hover:text-zinc-900 text-lg leading-none" aria-label="Remove ' + escapeHtml(behavior) + '">&times;</button>';
 

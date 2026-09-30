@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/forms.html" import field_label, text_input, datetime_input, form_actions %}
+{% from "macros/forms.html" import field_label, text_input, datetime_input, form_actions, scale_field %}
 {% from "macros/exposure.html" import exposure_plan_fields %}
 
 {% block document_title %}Ledger · {{ entry_label }}{% endblock %}
@@ -23,7 +23,8 @@
   </div>
 
   <section class="space-y-3">
-    <h2 class="text-sm font-medium text-zinc-800">Before the exposure (0–10)</h2>
+    <h2 class="text-sm font-medium text-zinc-800">Before the exposure</h2>
+    {{ scale_field(payload) }}
     {{ exposure_plan_fields(payload) }}
   </section>
 

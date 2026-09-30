@@ -246,10 +246,30 @@ def parse_skills_json(raw: str | None) -> list[dict]:
     return skills
 
 
+SCORE_MAX = 5
+
+
+def score_max(payload: dict | None = None) -> int:
+    """Top of the rating scale for an entry: 5 for new entries, 10 for legacy ones."""
+    p = payload or {}
+    try:
+        scale = int(p.get("scale") or 0)
+    except (TypeError, ValueError):
+        scale = 0
+    if scale:
+        return scale
+    return 10 if p else SCORE_MAX
+
+
+def parse_scale(form) -> int:
+    return 10 if str(form.get("scale") or "").strip() == "10" else SCORE_MAX
+
+
 def parse_emotions_json(
     raw: str | None,
     intensity_key: str = "intensity",
     include_intensity: bool = True,
+    optional_intensity: bool = False,
 ) -> list[dict]:
     if not raw:
         return []
@@ -273,6 +293,11 @@ def parse_emotions_json(
             except (TypeError, ValueError):
                 intensity = 1
             entry[intensity_key] = intensity
+        elif optional_intensity and item.get(intensity_key) not in (None, ""):
+            try:
+                entry[intensity_key] = max(1, min(SCORE_MAX, int(item.get(intensity_key))))
+            except (TypeError, ValueError):
+                pass
         out.append(entry)
     return out
 
@@ -625,7 +650,11 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
 
     if entry_type == "checkin":
         payload = {
-            "emotions": parse_emotions_json(form.get("emotions_json"), include_intensity=False),
+            "emotions": parse_emotions_json(
+                form.get("emotions_json"),
+                include_intensity=False,
+                optional_intensity=True,
+            ),
             "urges": parse_urges_json(form.get("urges_json")),
             "description": (form.get("description") or "").strip(),
         }
@@ -646,6 +675,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "noted_emotions": parse_emotions_json(
                 form.get("noted_emotions_json"),
                 include_intensity=False,
+                optional_intensity=True,
             ),
             "diary_emotions": diary_emotions,
             "diary_urges": diary_urges,
@@ -676,6 +706,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "validity": (form.get("validity") or "").strip(),
             "alternative_thought": (form.get("alternative_thought") or "").strip(),
             "emotions_after": parse_emotions_json(form.get("emotions_after_json"), "intensity_after"),
+            "scale": parse_scale(form),
         }
 
     elif entry_type == "mantras":
@@ -720,6 +751,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "suds_after": parse_int(form.get("suds_after")),
             "avoidance_or_safety_behaviors": (form.get("avoidance_or_safety_behaviors") or "").strip(),
             "notes": (form.get("notes") or "").strip(),
+            "scale": parse_scale(form),
         }
 
     elif entry_type == "journal":
@@ -791,6 +823,7 @@ def parse_behavioral_activation_plan(form, existing: dict | None = None) -> dict
         "planned_datetime": planned.isoformat() if planned else None,
         "emotions": emotions,
         "additional_thoughts": (existing.get("additional_thoughts") or "").strip(),
+        "scale": parse_scale(form),
     }
 
 
@@ -851,6 +884,7 @@ def parse_opposite_action_plan(form, existing: dict | None = None) -> dict:
         "fits_facts": (form.get("fits_facts") or "").strip(),
         "opposite_action": (form.get("opposite_action") or "").strip(),
         "emotions_after": existing.get("emotions_after") or [],
+        "scale": parse_scale(form),
     }
 
 
@@ -905,6 +939,7 @@ def parse_exposure_plan(form, existing: dict | None = None) -> dict:
         "suds_after": existing.get("suds_after"),
         "avoidance_or_safety_behaviors": (existing.get("avoidance_or_safety_behaviors") or "").strip(),
         "notes": (existing.get("notes") or "").strip(),
+        "scale": parse_scale(form),
     }
 
 

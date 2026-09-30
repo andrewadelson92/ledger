@@ -16,10 +16,18 @@
 {% endif %}
 {% endmacro %}
 
-{% macro number_input(name, value='', min=1, max=10, required=false, label='') %}
-<input type="number" name="{{ name }}" value="{{ value }}" min="{{ min }}" max="{{ max }}"
-  class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-  {% if label %}aria-label="{{ label }}"{% endif %}{% if required %} required{% endif %}>
+{% macro scale_input(name, value=none, max=5, label='') %}
+{% set v = value if value is not none and value != '' else ((max + 1) // 2) %}
+<div class="flex items-center gap-3">
+  <input type="range" name="{{ name }}" min="1" max="{{ max }}" value="{{ v }}"
+    class="scale-slider flex-1 accent-zinc-900"
+    {% if label %}aria-label="{{ label }}"{% endif %}>
+  <span class="scale-val text-sm text-zinc-600 w-6 text-center">{{ v }}</span>
+</div>
+{% endmacro %}
+
+{% macro scale_field(payload) %}
+<input type="hidden" name="scale" value="{{ score_max(payload) }}">
 {% endmacro %}
 
 {% macro datetime_input(name, value='') %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/forms.html" import field_label, text_input, datetime_input, form_actions %}
+{% from "macros/forms.html" import field_label, text_input, datetime_input, form_actions, scale_field %}
 {% from "macros/behavioral_activation.html" import ba_emotion_plan_card %}
 
 {% block document_title %}Ledger · {{ entry_label }}{% endblock %}
@@ -22,10 +22,12 @@
     {{ datetime_input('planned_datetime', payload.planned_datetime[:16] if payload.planned_datetime else '') }}
   </div>
 
+  {% set scale = score_max(payload) %}
+  {{ scale_field(payload) }}
   <section class="space-y-4">
-    <h2 class="text-sm font-medium text-zinc-800">Emotions before the activity (1–10)</h2>
+    <h2 class="text-sm font-medium text-zinc-800">Emotions before the activity (1–{{ scale }})</h2>
     {% for row in behavioral_activation_emotion_rows(payload) %}
-    {{ ba_emotion_plan_card(row) }}
+    {{ ba_emotion_plan_card(row, scale) }}
     {% endfor %}
   </section>
 

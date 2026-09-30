@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/forms.html" import field_label, text_input, number_input, form_actions %}
+{% from "macros/forms.html" import field_label, text_input, scale_input, scale_field, form_actions %}
 
 {% block document_title %}Ledger · {{ entry_label }}{% endblock %}
 
@@ -26,18 +26,20 @@
   </div>
   {% endif %}
 
+  {% set scale = score_max(payload) %}
+  {{ scale_field(payload) }}
   <div class="grid gap-4 sm:grid-cols-3">
     <div>
-      {{ field_label('SUDS before (0–10)', true) }}
-      {{ number_input('suds_before', payload.suds_before if payload.suds_before is not none else '', 0, 10, true) }}
+      {{ field_label('SUDS before (1–' ~ scale ~ ')', true) }}
+      {{ scale_input('suds_before', payload.suds_before, scale, 'SUDS before') }}
     </div>
     <div>
-      {{ field_label('SUDS peak (0–10)', true) }}
-      {{ number_input('suds_peak', payload.suds_peak if payload.suds_peak is not none else '', 0, 10, true) }}
+      {{ field_label('SUDS peak (1–' ~ scale ~ ')', true) }}
+      {{ scale_input('suds_peak', payload.suds_peak, scale, 'SUDS peak') }}
     </div>
     <div>
-      {{ field_label('SUDS after (0–10)', true) }}
-      {{ number_input('suds_after', payload.suds_after if payload.suds_after is not none else '', 0, 10, true) }}
+      {{ field_label('SUDS after (1–' ~ scale ~ ')', true) }}
+      {{ scale_input('suds_after', payload.suds_after, scale, 'SUDS after') }}
     </div>
   </div>
 

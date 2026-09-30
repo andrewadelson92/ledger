@@ -74,6 +74,7 @@ from helpers import (
     exposure_is_complete,
     exposure_needs_outcome,
     exposure_predicted_peak,
+    score_max,
     parse_exposure_plan,
     merge_exposure_outcome,
     opposite_action_has_plan,
@@ -165,6 +166,7 @@ def inject_globals():
         "exposure_is_complete": exposure_is_complete,
         "exposure_needs_outcome": exposure_needs_outcome,
         "exposure_predicted_peak": exposure_predicted_peak,
+        "score_max": score_max,
         "agenda_slots_for_form": agenda_slots_for_form,
         "format_planner_hour": format_planner_hour,
         "daily_planner_focus": daily_planner_focus,
@@ -188,6 +190,7 @@ for _name, _fn in (
     ("exposure_is_complete", exposure_is_complete),
     ("exposure_needs_outcome", exposure_needs_outcome),
     ("exposure_predicted_peak", exposure_predicted_peak),
+    ("score_max", score_max),
     ("agenda_slots_for_form", agenda_slots_for_form),
     ("format_planner_hour", format_planner_hour),
     ("daily_planner_focus", daily_planner_focus),
@@ -448,13 +451,13 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         prefs = get_or_create_preferences()
         tracked = list(prefs.diary_emotions or DIARY_CARD_EMOTIONS)
         payload = dict(ctx["payload"])
-        # Fold legacy intensity extras into noted emotions (Today only tracks names).
+        # Fold legacy diary-card extras into noted emotions (intensity is optional there).
         noted = list(payload.get("noted_emotions") or [])
         seen = {(e.get("name") or "").strip().lower() for e in noted if isinstance(e, dict)}
         for extra_e in diary_card_extra_emotions(payload.get("diary_emotions"), tracked):
             name = (extra_e.get("name") or "").strip()
             if name and name.lower() not in seen:
-                noted.append({"name": name})
+                noted.append({"name": name, "intensity": extra_e.get("intensity")})
                 seen.add(name.lower())
         payload["noted_emotions"] = noted
         ctx["payload"] = payload
