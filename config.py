@@ -48,3 +48,4 @@ def load_config(app) -> None:
         app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(_APP_ROOT, 'ledger.db')}"
 
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024

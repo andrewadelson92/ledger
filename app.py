@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify
-from datetime import datetime
+from flask import Flask, Response, render_template, request, redirect, url_for, flash, abort, jsonify
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
 import sys
@@ -28,7 +28,7 @@ if _is_demo:
 
 from db import db
 from config import load_config
-from models import Entry, Invite, User, UserPreference
+from models import AudioClip, Entry, Invite, User, UserPreference
 from flask_login import login_user, logout_user, current_user
 from auth import (
     login_manager,
@@ -85,6 +85,9 @@ from helpers import (
     entry_can_delete,
     linked_journal_for,
     sync_diary_card_journal,
+    keep_legacy_diary_journal,
+    parse_id_list,
+    parse_int,
     parse_journal_fields,
     find_todays_daily_goal,
     find_todays_entry,
@@ -250,6 +253,7 @@ def _ensure_demo_blank_user() -> User:
 
 def _reset_demo_database() -> User:
     """Wipe the demo DB contents and recreate the blank demo login."""
+    AudioClip.query.delete()
     Entry.query.delete()
     Invite.query.delete()
     UserPreference.query.delete()
@@ -430,7 +434,7 @@ def _save_daily_goal(payload: dict) -> Entry:
 def _save_daily_planner(payload: dict) -> Entry:
     existing = _todays_daily_planner()
     if existing:
-        existing.payload = payload
+        existing.payload = keep_legacy_diary_journal(payload, existing.payload)
         _touch_entry(existing)
         db.session.commit()
         return existing
@@ -485,6 +489,8 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
             ctx["journal_payload"] = {"text": journal_payload.get("text", "")}
         else:
             ctx["journal_payload"] = {}
+    if entry_type == "journal":
+        ctx["audio_clips"] = _clips_for_ids(ctx["payload"].get("audio_clip_ids"))
     if entry_type == "checkin":
         prefs = get_or_create_preferences()
         ctx["show_feelings_wheel"] = bool(prefs.show_feelings_wheel)
@@ -496,10 +502,108 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
 
 def _save_entry(entry: Entry, entry_type: str | None = None) -> None:
     db.session.add(entry)
+    if (entry_type or entry.type) == "journal":
+        _sync_journal_audio(entry, (entry.payload or {}).get("audio_clip_ids") or [])
     if (entry_type or entry.type) == "diary_card":
         db.session.flush()
         sync_diary_card_journal(entry, request.form)
     db.session.commit()
+
+
+AUDIO_MAX_BYTES = 25 * 1024 * 1024
+AUDIO_ORPHAN_TTL = timedelta(days=1)
+
+
+def _owned_clip_ids(ids: list[int], entry_id: int | None = None) -> list[int]:
+    """Clip ids the current user may attach: unattached uploads or clips already on this entry."""
+    if not ids:
+        return []
+    clips = AudioClip.query.filter(AudioClip.user_id == uid(), AudioClip.id.in_(ids)).all()
+    allowed = {c.id for c in clips if c.entry_id is None or c.entry_id == entry_id}
+    return [i for i in ids if i in allowed]
+
+
+def _clips_for_ids(ids) -> list[AudioClip]:
+    ids = [i for i in (ids or []) if isinstance(i, int)]
+    if not ids:
+        return []
+    by_id = {
+        c.id: c
+        for c in AudioClip.query.filter(AudioClip.user_id == uid(), AudioClip.id.in_(ids))
+    }
+    return [by_id[i] for i in ids if i in by_id]
+
+
+def _sync_journal_audio(entry: Entry, ids: list[int]) -> None:
+    keep = set(ids)
+    for clip in list(entry.audio_clips):
+        if clip.id not in keep:
+            entry.audio_clips.remove(clip)
+    attached = {c.id for c in entry.audio_clips}
+    for clip in _clips_for_ids([i for i in ids if i not in attached]):
+        entry.audio_clips.append(clip)
+
+
+def _audio_mime(raw: str | None) -> str | None:
+    base = (raw or "").split(";")[0].strip().lower()
+    if base.startswith("video/"):
+        base = "audio/" + base.split("/", 1)[1]
+    return base if base.startswith("audio/") else None
+
+
+@app.route("/api/audio", methods=["POST"])
+def audio_upload():
+    upload = request.files.get("audio")
+    if upload is None:
+        return jsonify({"error": "No audio received."}), 400
+    mime = _audio_mime(upload.mimetype)
+    if not mime:
+        return jsonify({"error": "Unsupported audio format."}), 400
+    data = upload.read(AUDIO_MAX_BYTES + 1)
+    if not data:
+        return jsonify({"error": "Recording was empty."}), 400
+    if len(data) > AUDIO_MAX_BYTES:
+        return jsonify({"error": "Recording is too long."}), 413
+
+    AudioClip.query.filter(
+        AudioClip.user_id == uid(),
+        AudioClip.entry_id.is_(None),
+        AudioClip.created_at < datetime.utcnow() - AUDIO_ORPHAN_TTL,
+    ).delete(synchronize_session=False)
+
+    clip = AudioClip(
+        user_id=uid(),
+        mime_type=mime,
+        duration_ms=parse_int(request.form.get("duration_ms")),
+        size_bytes=len(data),
+        data=data,
+    )
+    db.session.add(clip)
+    db.session.commit()
+    return jsonify({
+        "id": clip.id,
+        "url": url_for("audio_file", clip_id=clip.id),
+        "duration_ms": clip.duration_ms,
+    })
+
+
+@app.route("/audio/<int:clip_id>")
+def audio_file(clip_id):
+    clip = AudioClip.query.filter_by(id=clip_id, user_id=uid()).first()
+    if clip is None:
+        abort(404)
+    data = bytes(clip.data)
+    total = len(data)
+    headers = {"Accept-Ranges": "bytes", "Cache-Control": "private, max-age=3600"}
+    byte_range = request.range.range_for_length(total) if request.range else None
+    if request.range and byte_range is None:
+        headers["Content-Range"] = f"bytes */{total}"
+        return Response(status=416, headers=headers)
+    if byte_range:
+        start, stop = byte_range
+        headers["Content-Range"] = f"bytes {start}-{stop - 1}/{total}"
+        return Response(data[start:stop], status=206, mimetype=clip.mime_type, headers=headers)
+    return Response(data, mimetype=clip.mime_type, headers=headers)
 
 
 @app.route("/health")
@@ -521,12 +625,16 @@ def new_entry(entry_type):
 
     if request.method == "POST":
         payload, linked_entry_id, secondary_tag = payload_for_type(entry_type, request.form)
-        if entry_type == "journal" and not payload.get("text"):
-            flash("Journal text is required.")
-            return render_template(
-                f"forms/{entry_type}.html",
-                **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+        if entry_type == "journal":
+            payload["audio_clip_ids"] = _owned_clip_ids(
+                parse_id_list(request.form.get("audio_clip_ids"))
             )
+            if not payload.get("text") and not payload["audio_clip_ids"]:
+                flash("Write something or record audio.")
+                return render_template(
+                    f"forms/{entry_type}.html",
+                    **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+                )
         if entry_type == "behavioral_activation":
             if not payload.get("activity") or not payload.get("planned_datetime"):
                 flash("Activity and planned date & time are required.")
@@ -839,12 +947,15 @@ def entry_edit(entry_id):
             secondary_tag = entry.secondary_tag
         elif entry.type == "journal":
             payload = parse_journal_fields(request.form, existing=entry.payload or {})
+            payload["audio_clip_ids"] = _owned_clip_ids(
+                parse_id_list(request.form.get("audio_clip_ids")), entry.id
+            )
             linked_entry_id = entry.linked_entry_id
             secondary_tag = entry.secondary_tag
         else:
             payload, linked_entry_id, secondary_tag = payload_for_type(entry.type, request.form)
-        if entry.type == "journal" and not payload.get("text"):
-            flash("Journal text is required.")
+        if entry.type == "journal" and not payload.get("text") and not payload.get("audio_clip_ids"):
+            flash("Write something or record audio.")
             return render_template(
                 f"forms/{entry.type}.html",
                 **_form_render_ctx(
@@ -974,12 +1085,16 @@ def entry_edit(entry_id):
                         secondary_tag=entry.secondary_tag,
                     ),
                 )
+        if entry.type == "daily_planner":
+            payload = keep_legacy_diary_journal(payload, entry.payload)
         entry.payload = payload
         entry.linked_entry_id = linked_entry_id
         entry.secondary_tag = secondary_tag
         _touch_entry(entry)
         if entry.type == "diary_card":
             sync_diary_card_journal(entry, request.form)
+        if entry.type == "journal":
+            _sync_journal_audio(entry, payload.get("audio_clip_ids") or [])
         db.session.commit()
         flash("Entry updated.")
         if entry.type in ("daily_goal", "daily_planner"):

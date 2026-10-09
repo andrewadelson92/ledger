@@ -1,0 +1,177 @@
+{% macro audio_recorder(clips=[], max_minutes=10) %}
+<div class="audio-recorder space-y-3" data-max-ms="{{ max_minutes * 60 * 1000 }}">
+  <ul class="audio-clips space-y-2"></ul>
+  <div class="flex items-center gap-3">
+    <button type="button"
+      class="record-btn inline-flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50">
+      <span class="record-dot inline-block h-2 w-2 rounded-full bg-zinc-500"></span>
+      <span class="record-label">Record audio</span>
+    </button>
+    <span class="record-status text-xs text-zinc-500" aria-live="polite"></span>
+  </div>
+  <input type="hidden" name="audio_clip_ids" value="">
+  <script type="application/json" class="audio-initial">{{ clips|map(attribute='id')|list|tojson }}</script>
+  <script type="application/json" class="audio-initial-meta">{{ clips|map(attribute='duration_ms')|list|tojson }}</script>
+</div>
+
+<script>
+(function() {
+  const container = document.currentScript.previousElementSibling;
+  if (!container || !container.classList.contains('audio-recorder')) return;
+
+  const list = container.querySelector('.audio-clips');
+  const btn = container.querySelector('.record-btn');
+  const dot = container.querySelector('.record-dot');
+  const label = container.querySelector('.record-label');
+  const status = container.querySelector('.record-status');
+  const hidden = container.querySelector('input[name="audio_clip_ids"]');
+  const maxMs = parseInt(container.dataset.maxMs, 10) || 600000;
+  const audioUrl = function(id) { return '{{ url_for("audio_file", clip_id=0) }}'.replace(/0$/, String(id)); };
+
+  let clips = [];
+  try {
+    const ids = JSON.parse(container.querySelector('.audio-initial').textContent || '[]');
+    const durations = JSON.parse(container.querySelector('.audio-initial-meta').textContent || '[]');
+    clips = ids.map(function(id, i) { return { id: id, url: audioUrl(id), duration_ms: durations[i] }; });
+  } catch (e) {}
+
+  let recorder = null;
+  let stream = null;
+  let chunks = [];
+  let startedAt = 0;
+  let timer = null;
+  let busy = false;
+
+  function fmt(ms) {
+    if (!ms && ms !== 0) return '';
+    const total = Math.round(ms / 1000);
+    return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+  }
+
+  function sync() {
+    hidden.value = JSON.stringify(clips.map(function(c) { return c.id; }));
+  }
+
+  function render() {
+    list.innerHTML = '';
+    clips.forEach(function(clip, index) {
+      const li = document.createElement('li');
+      li.className = 'flex items-center gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2';
+      li.innerHTML =
+        '<audio controls preload="metadata" class="h-8 flex-1 min-w-0"></audio>' +
+        (clip.duration_ms ? '<span class="text-xs text-zinc-500 shrink-0">' + fmt(clip.duration_ms) + '</span>' : '') +
+        '<button type="button" class="remove-clip shrink-0 text-xs text-zinc-500 hover:text-zinc-900">Remove</button>';
+      li.querySelector('audio').src = clip.url;
+      li.querySelector('.remove-clip').addEventListener('click', function() {
+        clips.splice(index, 1);
+        render();
+        sync();
+      });
+      list.appendChild(li);
+    });
+  }
+
+  function setStatus(text) { status.textContent = text || ''; }
+
+  function setRecordingUi(on) {
+    label.textContent = on ? 'Stop' : 'Record audio';
+    dot.classList.toggle('bg-zinc-900', on);
+    dot.classList.toggle('animate-pulse', on);
+    dot.classList.toggle('bg-zinc-500', !on);
+  }
+
+  function pickMimeType() {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+    const options = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'];
+    for (let i = 0; i < options.length; i++) {
+      if (MediaRecorder.isTypeSupported(options[i])) return options[i];
+    }
+    return '';
+  }
+
+  function upload(blob, durationMs) {
+    busy = true;
+    setStatus('Saving recording…');
+    const body = new FormData();
+    const ext = (blob.type.indexOf('mp4') !== -1) ? 'm4a' : (blob.type.indexOf('ogg') !== -1 ? 'ogg' : 'webm');
+    body.append('audio', blob, 'recording.' + ext);
+    body.append('duration_ms', String(durationMs));
+    fetch('{{ url_for("audio_upload") }}', { method: 'POST', body: body, credentials: 'same-origin' })
+      .then(function(r) {
+        return r.json().catch(function() { return {}; }).then(function(data) {
+          if (!r.ok) throw new Error(data.error || 'Could not save recording.');
+          return data;
+        });
+      })
+      .then(function(data) {
+        clips.push({ id: data.id, url: data.url, duration_ms: data.duration_ms });
+        render();
+        sync();
+        setStatus('');
+      })
+      .catch(function(err) { setStatus(err.message || 'Could not save recording.'); })
+      .finally(function() { busy = false; });
+  }
+
+  function stop() {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  }
+
+  function start() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      setStatus('Recording isn’t supported here (it needs a secure https connection).');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(s) {
+      stream = s;
+      chunks = [];
+      const mimeType = pickMimeType();
+      recorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+      recorder.addEventListener('dataavailable', function(e) {
+        if (e.data && e.data.size) chunks.push(e.data);
+      });
+      recorder.addEventListener('stop', function() {
+        clearInterval(timer);
+        stream.getTracks().forEach(function(t) { t.stop(); });
+        setRecordingUi(false);
+        const durationMs = Date.now() - startedAt;
+        const blob = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
+        recorder = null;
+        if (blob.size) upload(blob, durationMs);
+        else setStatus('Nothing was recorded.');
+      });
+      recorder.start(1000);
+      startedAt = Date.now();
+      setRecordingUi(true);
+      setStatus('Recording 0:00');
+      timer = setInterval(function() {
+        const elapsed = Date.now() - startedAt;
+        setStatus('Recording ' + fmt(elapsed));
+        if (elapsed >= maxMs) stop();
+      }, 500);
+    }).catch(function() {
+      setStatus('Microphone access was blocked.');
+    });
+  }
+
+  btn.addEventListener('click', function() {
+    if (busy) return;
+    if (recorder) stop();
+    else start();
+  });
+
+  const form = container.closest('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      if (recorder || busy) {
+        e.preventDefault();
+        setStatus(recorder ? 'Stop the recording before saving.' : 'Still saving the recording…');
+      }
+    });
+  }
+
+  render();
+  sync();
+})();
+</script>
+{% endmacro %}

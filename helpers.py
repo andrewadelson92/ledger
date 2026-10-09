@@ -221,7 +221,13 @@ def entry_summary(entry) -> str:
     if t == "journal":
         if p.get("title"):
             return _truncate(p.get("title"))
-        return _truncate(p.get("text")) or "Journal"
+        text = _truncate(p.get("text"))
+        if text:
+            return text
+        clips = len(p.get("audio_clip_ids") or [])
+        if clips:
+            return "Voice journal" if clips == 1 else f"Voice journal ({clips} recordings)"
+        return "Journal"
 
     return type_label(t)
 
@@ -367,12 +373,21 @@ def daily_planner_focus(payload: dict | None = None) -> str:
     return (p.get("focus") or p.get("intentions") or "").strip()
 
 
+def keep_legacy_diary_journal(payload: dict, previous: dict | None) -> dict:
+    """Today no longer edits a journal; keep text saved before the field was removed."""
+    legacy = ((previous or {}).get("diary_journal") or "").strip()
+    if legacy:
+        payload["diary_journal"] = legacy
+    return payload
+
+
 def daily_planner_has_diary(payload: dict | None = None) -> bool:
     p = payload or {}
     return bool(
         p.get("diary_emotions")
         or p.get("diary_urges")
         or p.get("noted_emotions")
+        or (p.get("daily_affirmation") or "").strip()
         or (p.get("diary_journal") or "").strip()
     )
 
@@ -464,12 +479,11 @@ def _tracked_diary_emotions() -> list[str]:
     return list(DIARY_CARD_EMOTIONS)
 
 
-def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict], str]:
+def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict]]:
     """Parse optional diary-card fields; return empty if the section was unused."""
     tracked = _tracked_diary_emotions()
     emotions = parse_diary_card_emotions(form, tracked=tracked)
     urges = parse_urges_json(form.get("urges_json"))
-    journal = (form.get("text") or "").strip()
     fixed = {name.lower() for name in tracked}
     extras = [
         e for e in emotions
@@ -489,9 +503,9 @@ def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict], str]:
         except (TypeError, ValueError):
             fixed_changed = True
             break
-    if not urges and not journal and not extras and not fixed_changed:
-        return [], [], ""
-    return emotions, urges, journal
+    if not urges and not extras and not fixed_changed:
+        return [], []
+    return emotions, urges
 
 
 def parse_diary_card_emotions(form, tracked: list[str] | None = None) -> list[dict]:
@@ -520,10 +534,31 @@ def parse_diary_card_emotions(form, tracked: list[str] | None = None) -> list[di
 
 def parse_journal_fields(form, existing: dict | None = None) -> dict:
     existing = existing or {}
-    return {
+    out = {
         "title": (existing.get("title") or "").strip(),
         "text": (form.get("text") or "").strip(),
     }
+    if existing.get("audio_clip_ids"):
+        out["audio_clip_ids"] = list(existing["audio_clip_ids"])
+    return out
+
+
+def parse_id_list(raw: str | None) -> list[int]:
+    try:
+        data = json.loads(raw or "[]")
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    out = []
+    for item in data:
+        try:
+            value = int(item)
+        except (TypeError, ValueError):
+            continue
+        if value not in out:
+            out.append(value)
+    return out
 
 
 def linked_journal_for(entry) -> Any | None:
@@ -546,8 +581,11 @@ def sync_diary_card_journal(diary_entry, form) -> None:
     existing_payload = (existing.payload or {}) if existing else {}
 
     if not fields["text"]:
-        if existing:
+        if existing and not existing.audio_clips:
             db.session.delete(existing)
+        elif existing:
+            existing.payload = parse_journal_fields(form, existing_payload)
+            existing.updated_at = datetime.utcnow()
         return
 
     payload = parse_journal_fields(form, existing_payload)
@@ -666,7 +704,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         }
 
     elif entry_type == "daily_planner":
-        diary_emotions, diary_urges, diary_journal = parse_embedded_diary_card(form)
+        diary_emotions, diary_urges = parse_embedded_diary_card(form)
         payload = {
             "focus": (form.get("focus") or form.get("intentions") or "").strip(),
             "tiny_better_reward": (form.get("tiny_better_reward") or "").strip(),
@@ -679,7 +717,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             ),
             "diary_emotions": diary_emotions,
             "diary_urges": diary_urges,
-            "diary_journal": diary_journal,
+            "daily_affirmation": (form.get("daily_affirmation") or "").strip(),
         }
 
     elif entry_type == "diary_card":

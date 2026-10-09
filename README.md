@@ -21,7 +21,7 @@ Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL on Railway.
 | Behavioral Activation | Two-step: plan joy/sadness levels → complete after activity |
 | Chain Analysis | Problem behavior chain with typed links |
 | Exposure | Two-step: SUDS before + predicted peak → complete after exposure |
-| Journal | Free-form title + entry |
+| Journal | Free-form text and/or microphone recordings (stored in the database) |
 
 ## Local development
 

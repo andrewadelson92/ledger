@@ -117,6 +117,13 @@
         </div>
         {% endif %}
 
+        {% if plan.daily_affirmation %}
+        <div>
+          <h4 class="text-sm font-medium text-zinc-800 mb-1">Daily affirmation</h4>
+          <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ plan.daily_affirmation }}</p>
+        </div>
+        {% endif %}
+
         {% if plan.diary_journal %}
         <div>
           <h4 class="text-sm font-medium text-zinc-800 mb-1">Journal</h4>

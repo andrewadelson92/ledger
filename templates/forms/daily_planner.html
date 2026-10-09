@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros/forms.html" import field_label, text_input, form_actions, journal_fields %}
+{% from "macros/forms.html" import field_label, text_input, form_actions %}
 {% from "macros/emotion_wheel.html" import emotion_wheel_picker %}
 {% from "macros/target_behaviors.html" import target_behavior_urges %}
 
@@ -53,6 +53,12 @@
     <div>
       {{ target_behavior_urges(payload.diary_urges or [], default_target_behaviors) }}
     </div>
+
+    <div>
+      {{ field_label('Daily affirmation') }}
+      <p class="text-sm text-zinc-600 mb-2">A short line to carry with you today.</p>
+      {{ text_input('daily_affirmation', payload.daily_affirmation or '', rows=2, placeholder='I can sit with hard feelings and still choose my next step.') }}
+    </div>
   </section>
 
   <div>
@@ -68,10 +74,6 @@
       <li>What small thing will I like as a reward?</li>
     </ul>
     {{ text_input('tiny_better_reward', payload.tiny_better_reward or '', rows=4, placeholder='One small improvement and a small reward…') }}
-  </div>
-
-  <div>
-    {{ journal_fields({'text': payload.diary_journal or ''}, false, 6, 'Journal Entry') }}
   </div>
 
   <div>

@@ -82,9 +82,33 @@ class Entry(db.Model):
     linked_entry_id = db.Column(db.Integer, db.ForeignKey("entries.id"), nullable=True)
 
     user = db.relationship("User", lazy=True)
+    audio_clips = db.relationship(
+        "AudioClip",
+        back_populates="entry",
+        cascade="all, delete-orphan",
+        order_by="AudioClip.created_at",
+        lazy=True,
+    )
     linked_entry = db.relationship(
         "Entry",
         remote_side=[id],
         foreign_keys=[linked_entry_id],
         backref=db.backref("linked_checkins", lazy="dynamic"),
     )
+
+
+class AudioClip(db.Model):
+    """Microphone recording attached to a journal entry (stored in the DB; Railway disk is ephemeral)."""
+
+    __tablename__ = "audio_clips"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    entry_id = db.Column(db.Integer, db.ForeignKey("entries.id"), nullable=True, index=True)
+    mime_type = db.Column(db.String(100), nullable=False)
+    duration_ms = db.Column(db.Integer, nullable=True)
+    size_bytes = db.Column(db.Integer, nullable=False)
+    data = db.deferred(db.Column(db.LargeBinary, nullable=False))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    entry = db.relationship("Entry", back_populates="audio_clips")
