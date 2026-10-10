@@ -271,6 +271,7 @@ def serialize_period(user, entries, prefs, *, include_journal: bool, base_url: s
             continue
         diary = _diary_from_entry(e)
         if diary is not None:
+            diary["at"] = _iso_utc(e.created_at)
             day_bucket(key)["diary"] = diary
         if e.type == "daily_planner":
             focus = ((e.payload or {}).get("focus") or "").strip()
@@ -278,7 +279,7 @@ def serialize_period(user, entries, prefs, *, include_journal: bool, base_url: s
                 day_bucket(key)["focus"] = focus
         skills = _skills_from_entry(e)
         if skills:
-            day_bucket(key)["skills"].extend(skills)
+            day_bucket(key)["skills"].extend({**s, "at": _iso_utc(e.created_at)} for s in skills)
         if e.type in DISCUSS_TYPES:
             discuss.append({
                 "entry_id": e.id,
