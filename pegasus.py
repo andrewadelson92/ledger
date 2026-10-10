@@ -321,6 +321,8 @@ def occurrence_for(entry) -> dict | None:
         if t == "daily_planner" and not daily_planner_has_diary(p):
             return None
         trigger, label = "diary_card", "Diary card"
+    elif t == "checkin":
+        trigger, label = "checkin", "Emotion check-in"
     elif t in ("skill_used", "daily_goal"):
         skills = _skills_from_entry(entry)
         if not skills:

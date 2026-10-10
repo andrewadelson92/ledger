@@ -74,5 +74,7 @@ with app.app_context():
     occ = pegasus.occurrence_for(by_type["skill_used"])
     assert occ["trigger_type"] == "skill_used" and occ["detail"]["modules"] == ["M"], occ
     assert pegasus.occurrence_for(by_type["journal"]) is None
+    checkin = pegasus.occurrence_for(Entry(type="checkin", payload={"emotions": [{"name": "Fear", "intensity": 4}]}))
+    assert checkin == {"trigger_type": "checkin", "label": "Emotion check-in", "detail": {}}, checkin
 
 print("ledger pegasus OK")
