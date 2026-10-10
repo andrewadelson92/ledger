@@ -42,6 +42,6 @@
     </div>
   </details>
 
-  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index'), review=mark_for_review|default(false)) }}
 </form>
 {% endblock %}

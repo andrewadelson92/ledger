@@ -31,6 +31,6 @@
     {% endfor %}
   </section>
 
-  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index'), 'Save plan' if not is_edit else 'Update plan') }}
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index'), 'Save plan' if not is_edit else 'Update plan', review=mark_for_review|default(false)) }}
 </form>
 {% endblock %}

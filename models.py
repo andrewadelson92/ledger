@@ -80,6 +80,9 @@ class Entry(db.Model):
     secondary_tag = db.Column(db.String, nullable=True)
     payload = db.Column(db.JSON, nullable=False)
     linked_entry_id = db.Column(db.Integer, db.ForeignKey("entries.id"), nullable=True)
+    mark_for_review = db.Column(db.Boolean, nullable=False, default=False)
+    # Pegasus: what Long Track did with this entry ({"status": ..., "landed": [names]}).
+    pegasus_status = db.Column(db.JSON, nullable=True)
 
     user = db.relationship("User", lazy=True)
     audio_clips = db.relationship(

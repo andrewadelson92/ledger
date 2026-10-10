@@ -42,7 +42,13 @@
 </div>
 {% endmacro %}
 
-{% macro form_actions(cancel_url, submit_label='Save') %}
+{% macro form_actions(cancel_url, submit_label='Save', review=none) %}
+{% if review is not none %}
+<label class="flex items-start gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800">
+  <input type="checkbox" name="mark_for_review" value="1" class="mt-0.5 h-4 w-4 rounded border-zinc-300"{% if review %} checked{% endif %}>
+  <span>Mark for review <span class="block text-xs text-zinc-500">Something to bring to therapy. Listed first in the Pegasus export.</span></span>
+</label>
+{% endif %}
 <div class="flex items-center gap-3 pt-2">
   <button type="submit"
     class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">

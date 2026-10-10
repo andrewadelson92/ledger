@@ -20,6 +20,15 @@
     {% if entry.secondary_tag %}
     <span class="ml-2 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">{{ entry.secondary_tag }}</span>
     {% endif %}
+    {% if entry.mark_for_review %}
+    <span class="mt-2 inline-block rounded-full border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800">Marked for review</span>
+    {% endif %}
+    {% set ps = entry.pegasus_status or {} %}
+    {% if ps.landed %}
+    <p class="mt-2 text-sm text-zinc-600">Recorded in Long Track: {{ ps.landed|join(', ') }}</p>
+    {% elif ps.status == 'pending' %}
+    <p class="mt-2 text-sm text-zinc-600">Waiting in Long Track’s From Ledger queue.</p>
+    {% endif %}
   </div>
   <div class="flex shrink-0 items-center gap-2">
     {% if entry.type != 'mantra_event' %}

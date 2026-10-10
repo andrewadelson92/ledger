@@ -101,7 +101,23 @@ from helpers import (
     todays_invoked_mantras,
 )
 
+import pegasus
+
 ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card", "mantra_event"})
+
+# Worksheets that can be flagged to bring to therapy (Pegasus export "Worth discussing").
+REVIEWABLE_TYPES = frozenset({
+    "checkin",
+    "skill_used",
+    "thought_record",
+    "opposite_action",
+    "abc",
+    "behavioral_activation",
+    "chain_analysis",
+    "exposure_plan",
+    "exposure_checkin",
+    "journal",
+})
 
 app = Flask(__name__)
 load_config(app)
@@ -346,7 +362,24 @@ def _touch_entry(entry: Entry) -> None:
 
 def _make_entry(**kwargs) -> Entry:
     kwargs.setdefault("user_id", uid())
+    if kwargs.get("type") in REVIEWABLE_TYPES:
+        kwargs.setdefault("mark_for_review", "mark_for_review" in request.form)
     return Entry(**kwargs)
+
+
+def _ledger_base_url() -> str:
+    return (os.getenv("LEDGER_PUBLIC_URL") or request.url_root).rstrip("/")
+
+
+def _pegasus_notify(entry: Entry, deleted: bool = False) -> None:
+    """Tell Long Track about a completion-shaped entry; store what it did. Never blocks a save."""
+    result = pegasus.send_occurrence(entry, base_url=_ledger_base_url(), deleted=deleted)
+    if deleted or not result or not result.get("ok"):
+        return
+    status = {"status": result.get("status"), "landed": result.get("landed") or []}
+    if entry.pegasus_status != status:
+        entry.pegasus_status = status
+        db.session.commit()
 
 
 def _exposure_plans():
@@ -424,10 +457,12 @@ def _save_daily_goal(payload: dict) -> Entry:
         existing.payload = payload
         _touch_entry(existing)
         db.session.commit()
+        _pegasus_notify(existing)
         return existing
     entry = _make_entry(type="daily_goal", payload=payload)
     db.session.add(entry)
     db.session.commit()
+    _pegasus_notify(entry)
     return entry
 
 
@@ -437,10 +472,12 @@ def _save_daily_planner(payload: dict) -> Entry:
         existing.payload = keep_legacy_diary_journal(payload, existing.payload)
         _touch_entry(existing)
         db.session.commit()
+        _pegasus_notify(existing)
         return existing
     entry = _make_entry(type="daily_planner", payload=payload)
     db.session.add(entry)
     db.session.commit()
+    _pegasus_notify(entry)
     return entry
 
 
@@ -451,6 +488,16 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         "payload": payload or {},
         **extra,
     }
+    if entry_type in REVIEWABLE_TYPES:
+        if request.method == "POST":
+            ctx["mark_for_review"] = "mark_for_review" in request.form
+        elif entry is not None:
+            ctx["mark_for_review"] = bool(entry.mark_for_review)
+        elif extra.get("entry_id"):
+            existing = entries_q().filter_by(id=extra["entry_id"]).first()
+            ctx["mark_for_review"] = bool(existing and existing.mark_for_review)
+        else:
+            ctx["mark_for_review"] = False
     if entry_type == "daily_planner":
         prefs = get_or_create_preferences()
         tracked = list(prefs.diary_emotions or DIARY_CARD_EMOTIONS)
@@ -508,6 +555,7 @@ def _save_entry(entry: Entry, entry_type: str | None = None) -> None:
         db.session.flush()
         sync_diary_card_journal(entry, request.form)
     db.session.commit()
+    _pegasus_notify(entry)
 
 
 AUDIO_MAX_BYTES = 25 * 1024 * 1024
@@ -611,6 +659,44 @@ def health():
     uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
     db_kind = "postgres" if uri.startswith("postgresql") else "sqlite"
     return jsonify({"ok": True, "db": db_kind})
+
+
+@app.route("/api/pegasus/entries", methods=["GET"])
+def api_pegasus_entries():
+    """Read-only period snapshot for Long Track's Pegasus therapy export (token auth, by email)."""
+    if not pegasus.pegasus_token():
+        abort(404)
+    if not pegasus.token_ok(request.headers.get("Authorization")):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    email = (request.args.get("email") or "").strip().lower()
+    try:
+        start = datetime.fromisoformat(request.args.get("start") or "")
+        end = datetime.fromisoformat(request.args.get("end") or "")
+    except ValueError:
+        return jsonify({"ok": False, "error": "start and end must be ISO datetimes (UTC)"}), 400
+    user = User.query.filter(db.func.lower(User.email) == email).first() if email else None
+    if user is None or not user.is_active:
+        return jsonify({"ok": True, "user_found": False})
+    entries = (
+        Entry.query.filter(
+            Entry.user_id == user.id,
+            Entry.created_at >= start,
+            Entry.created_at <= end,
+            Entry.type != "mantras",
+        )
+        .order_by(Entry.created_at.asc())
+        .all()
+    )
+    prefs = UserPreference.query.filter_by(user_id=user.id).first()
+    return jsonify(
+        pegasus.serialize_period(
+            user,
+            entries,
+            prefs,
+            include_journal=request.args.get("include_journal") == "1",
+            base_url=_ledger_base_url(),
+        )
+    )
 
 
 @app.route("/new")
@@ -910,6 +996,7 @@ def entry_outcome(entry_id):
         abort(400)
     _touch_entry(entry)
     db.session.commit()
+    _pegasus_notify(entry)
     flash("Outcome recorded.")
     return redirect(url_for("entry_detail", entry_id=entry.id))
 
@@ -920,6 +1007,7 @@ def entry_delete(entry_id):
     if not entry_can_delete(entry):
         abort(400)
     kind = type_label(entry.type)
+    _pegasus_notify(entry, deleted=True)
     db.session.delete(entry)
     db.session.commit()
     flash(f"{kind} deleted.")
@@ -1090,12 +1178,15 @@ def entry_edit(entry_id):
         entry.payload = payload
         entry.linked_entry_id = linked_entry_id
         entry.secondary_tag = secondary_tag
+        if entry.type in REVIEWABLE_TYPES:
+            entry.mark_for_review = "mark_for_review" in request.form
         _touch_entry(entry)
         if entry.type == "diary_card":
             sync_diary_card_journal(entry, request.form)
         if entry.type == "journal":
             _sync_journal_audio(entry, payload.get("audio_clip_ids") or [])
         db.session.commit()
+        _pegasus_notify(entry)
         flash("Entry updated.")
         if entry.type in ("daily_goal", "daily_planner"):
             return redirect(url_for("index", tab="today"))

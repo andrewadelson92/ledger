@@ -68,8 +68,20 @@ Any signed-in user can open **Settings** → enter an email → **Create invite 
 | `LEDGER_DB_PATH` | SQLite path override for local dev |
 | `LEDGER_OWNER_EMAIL` | Owner email for migration backfill (default `andrew.adelson92@gmail.com`; **required in production**) |
 | `PORT` | HTTP port (default `5002` for `python app.py`, `8080` for gunicorn) |
+| `PEGASUS_TOKEN` | Shared secret with Long Track (Pegasus bridge). Unset = bridge off |
+| `LONG_TRACK_URL` | Long Track base URL; Ledger sends completed moments here |
+| `LEDGER_PUBLIC_URL` | Optional public base URL for links sent to Long Track (falls back to the request host) |
 
 See `.env.example` for a starter template.
+
+## Pegasus bridge (Long Track)
+
+Ledger reports facts; Long Track decides what they mean. Full design: Long Track's `docs/pegasus.md`.
+
+- `GET /api/pegasus/entries?email&start&end&include_journal` — token-auth (`Authorization: Bearer $PEGASUS_TOKEN`), feeds Long Track's therapy export. Journal text only when `include_journal=1`.
+- On save / edit / outcome / delete of completion-shaped entries (diary card in the daily planner, skills, opposite action, behavioral activation, exposure, thought record, ABC, chain analysis), Ledger POSTs an occurrence to Long Track (`pegasus.send_occurrence`, 3s timeout, best effort — never blocks a save). The reply is stored on `Entry.pegasus_status` and shown on the entry page.
+- **Mark for review** (`Entry.mark_for_review`) lists an entry first in the Pegasus export.
+- Test: `PEGASUS_TOKEN=t LEDGER_DB_PATH=/tmp/ledger_pegasus_test.db .venv/bin/python scripts/test_pegasus.py`
 
 ## Deploy on Railway
 

@@ -23,6 +23,7 @@ PUBLIC_ENDPOINTS = frozenset(
         "register",
         "web_manifest",
         "static",
+        "api_pegasus_entries",
     }
 )
 

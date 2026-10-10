@@ -50,6 +50,6 @@
     {{ emotion_wheel_picker(emotion_wheel, 'emotions_after_json', payload.emotions_after or [], 'intensity_after', scale, mirror_from='emotions_before_json', show_picker_hint=false) }}
   </div>
 
-  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index')) }}
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index'), review=mark_for_review|default(false)) }}
 </form>
 {% endblock %}
