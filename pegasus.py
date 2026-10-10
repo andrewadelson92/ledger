@@ -36,6 +36,8 @@ OCCURRENCE_ENTRY_TYPES = frozenset(
     {
         "daily_planner",
         "diary_card",
+        "checkin",
+        "journal",
         "daily_goal",
         "skill_used",
         "opposite_action",
@@ -323,6 +325,8 @@ def occurrence_for(entry) -> dict | None:
         trigger, label = "diary_card", "Diary card"
     elif t == "checkin":
         trigger, label = "checkin", "Emotion check-in"
+    elif t == "journal":
+        trigger, label = "journal", "Journal entry"
     elif t in ("skill_used", "daily_goal"):
         skills = _skills_from_entry(entry)
         if not skills:

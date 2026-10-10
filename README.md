@@ -79,7 +79,7 @@ See `.env.example` for a starter template.
 Ledger reports facts; Long Track decides what they mean. Full design: Long Track's `docs/pegasus.md`.
 
 - `GET /api/pegasus/entries?email&start&end&include_journal` — token-auth (`Authorization: Bearer $PEGASUS_TOKEN`), feeds Long Track's therapy export. Journal text only when `include_journal=1`.
-- On save / edit / outcome / delete of completion-shaped entries (diary card in the daily planner, emotion check-in, skills, opposite action, behavioral activation, exposure, thought record, ABC, chain analysis), Ledger POSTs an occurrence to Long Track (`pegasus.send_occurrence`, 3s timeout, best effort — never blocks a save). The reply is stored on `Entry.pegasus_status` and shown on the entry page.
+- On save / edit / outcome / delete of completion-shaped entries (diary card in the daily planner, emotion check-in, journal entry, skills, opposite action, behavioral activation, exposure, thought record, ABC, chain analysis), Ledger POSTs an occurrence to Long Track (`pegasus.send_occurrence`, 3s timeout, best effort — never blocks a save). The reply is stored on `Entry.pegasus_status` and shown on the entry page.
 - **Mark for review** (`Entry.mark_for_review`) lists an entry first in the Pegasus export.
 - Test: `PEGASUS_TOKEN=t LEDGER_DB_PATH=/tmp/ledger_pegasus_test.db .venv/bin/python scripts/test_pegasus.py`
 

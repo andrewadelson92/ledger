@@ -73,8 +73,42 @@ with app.app_context():
     assert pegasus.occurrence_for(by_type["daily_planner"])["trigger_type"] == "diary_card"
     occ = pegasus.occurrence_for(by_type["skill_used"])
     assert occ["trigger_type"] == "skill_used" and occ["detail"]["modules"] == ["M"], occ
-    assert pegasus.occurrence_for(by_type["journal"]) is None
-    checkin = pegasus.occurrence_for(Entry(type="checkin", payload={"emotions": [{"name": "Fear", "intensity": 4}]}))
-    assert checkin == {"trigger_type": "checkin", "label": "Emotion check-in", "detail": {}}, checkin
+    checkin_entry = Entry(user_id=me_id, type="checkin", created_at=now, payload={"emotions": [{"name": "Fear", "intensity": 4}]})
+    db.session.add(checkin_entry)
+    db.session.commit()
+
+    sent = []
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            return b'{"ok": true, "status": "recorded", "landed": []}'
+
+    def fake_urlopen(req, timeout=None):
+        import json
+        sent.append(json.loads(req.data.decode("utf-8")))
+        return FakeResponse()
+
+    os.environ["LONG_TRACK_URL"] = "http://longtrack.invalid"
+    real_urlopen = pegasus.urllib.request.urlopen
+    pegasus.urllib.request.urlopen = fake_urlopen
+    try:
+        for entry_type in ("checkin", "journal"):
+            entry = checkin_entry if entry_type == "checkin" else by_type["journal"]
+            assert pegasus.send_occurrence(entry, base_url="http://ledger.invalid")["ok"]
+    finally:
+        pegasus.urllib.request.urlopen = real_urlopen
+        os.environ.pop("LONG_TRACK_URL")
+    assert [(s["trigger_type"], s["label"], s["deleted"]) for s in sent] == [
+        ("checkin", "Emotion check-in", False),
+        ("journal", "Journal entry", False),
+    ], sent
+    for s in sent:
+        assert "Fear" not in str(s) and "Private words" not in str(s), "no inner content leaves Ledger"
 
 print("ledger pegasus OK")
