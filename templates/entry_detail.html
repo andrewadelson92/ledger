@@ -47,6 +47,13 @@
     </form>
     {% endif %}
     {% if entry.type == 'mantra_event' %}
+    <form method="post" action="{{ url_for('entry_toggle_review', entry_id=entry.id) }}">
+      <input type="hidden" name="mark_for_review" value="{{ '0' if entry.mark_for_review else '1' }}">
+      <button type="submit"
+        class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+        {{ 'Unmark review' if entry.mark_for_review else 'Mark for review' }}
+      </button>
+    </form>
     <a href="{{ url_for('mantras_hub') }}"
        class="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
       Mantras

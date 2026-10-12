@@ -107,6 +107,7 @@ ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card", "m
 
 # Worksheets that can be flagged to bring to therapy (Pegasus export "Worth discussing").
 REVIEWABLE_TYPES = frozenset({
+    "mantra_event",
     "checkin",
     "skill_used",
     "thought_record",
@@ -930,6 +931,17 @@ def mantras_delete():
     event = _log_mantra_event("delete", match["id"], match["text"], "")
     flash("Mantra deleted.")
     return redirect(url_for("entry_detail", entry_id=event.id))
+
+
+@app.route("/entry/<int:entry_id>/review", methods=["POST"])
+def entry_toggle_review(entry_id):
+    """Mantra events have no edit form; mark / unmark for review from the detail page."""
+    entry = _get_entry_or_404(entry_id)
+    if entry.type != "mantra_event":
+        abort(404)
+    entry.mark_for_review = request.form.get("mark_for_review") == "1"
+    db.session.commit()
+    return redirect(url_for("entry_detail", entry_id=entry.id))
 
 
 @app.route("/entry/<int:entry_id>")

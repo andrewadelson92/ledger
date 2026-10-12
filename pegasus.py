@@ -49,6 +49,13 @@ OCCURRENCE_ENTRY_TYPES = frozenset(
     }
 )
 
+MANTRA_ACTION_LABELS = {
+    "invoke": "today's focus",
+    "add": "added",
+    "edit": "edited",
+    "delete": "deleted",
+}
+
 DISCUSS_TYPES = (
     "chain_analysis",
     "thought_record",
@@ -261,7 +268,7 @@ def serialize_period(user, entries, prefs, *, include_journal: bool, base_url: s
     days: dict[str, dict] = {}
 
     def day_bucket(key: str) -> dict:
-        return days.setdefault(key, {"diary": None, "skills": [], "focus": ""})
+        return days.setdefault(key, {"diary": None, "skills": [], "focus": "", "mantras": []})
 
     discuss = []
     journal = []
@@ -292,6 +299,38 @@ def serialize_period(user, entries, prefs, *, include_journal: bool, base_url: s
                 "mark_for_review": bool(getattr(e, "mark_for_review", False)),
                 "url": f"{base_url}/entry/{e.id}",
             })
+        if e.type == "mantra_event":
+            p = e.payload or {}
+            action = (p.get("action") or "").strip()
+            text = (p.get("text") or "").strip()
+            if text and action in MANTRA_ACTION_LABELS:
+                note = (p.get("journal") or "").strip() if include_journal else ""
+                item = {
+                    "entry_id": e.id,
+                    "action": action,
+                    "action_label": MANTRA_ACTION_LABELS[action],
+                    "mantra_id": (p.get("mantra_id") or "").strip(),
+                    "text": text,
+                    "note": note,
+                    "at": _iso_utc(e.created_at),
+                    "mark_for_review": bool(getattr(e, "mark_for_review", False)),
+                }
+                day_bucket(key)["mantras"].append(item)
+                if item["mark_for_review"]:
+                    fields = [["Mantra", text], ["Action", item["action_label"]]]
+                    if note:
+                        fields.append(["Journal", note])
+                    discuss.append({
+                        "entry_id": e.id,
+                        "type": "mantra_event",
+                        "type_label": f"Mantra · {item['action_label']}",
+                        "day": key,
+                        "at": item["at"],
+                        "summary": text,
+                        "fields": fields,
+                        "mark_for_review": True,
+                        "url": f"{base_url}/entry/{e.id}",
+                    })
         if include_journal and e.type == "journal":
             text = ((e.payload or {}).get("text") or "").strip()
             if text:

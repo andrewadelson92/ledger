@@ -37,6 +37,12 @@ with app.app_context():
             "emotions_after": [{"name": "Anxious", "intensity_after": 2}],
         }),
         Entry(user_id=me.id, type="journal", created_at=now, payload={"text": "Private words"}),
+        Entry(user_id=me.id, type="mantra_event", created_at=now, mark_for_review=True, payload={
+            "action": "invoke", "mantra_id": "m1", "text": "This too shall pass", "journal": "Mantra note",
+        }),
+        Entry(user_id=me.id, type="mantra_event", created_at=now, payload={
+            "action": "add", "mantra_id": "m2", "text": "One thing at a time", "journal": "",
+        }),
         Entry(user_id=other.id, type="skill_used", created_at=now, payload={"module": "DT", "skill": "STOP"}),
     ])
     db.session.commit()
@@ -58,11 +64,17 @@ assert data["user_found"] is True
 skills = [s["skill"] for d in data["days"].values() for s in d["skills"]]
 assert skills == ["Observe"], skills  # other user's STOP never appears
 assert any(d["diary"] for d in data["days"].values())
-assert data["discuss"][0]["type"] == "thought_record" and data["discuss"][0]["mark_for_review"]
+assert any(d["type"] == "thought_record" and d["mark_for_review"] for d in data["discuss"])
 assert data["journal"] == [], "journal excluded by default"
+mantras = [m for d in data["days"].values() for m in d.get("mantras", [])]
+assert {m["text"] for m in mantras} == {"This too shall pass", "One thing at a time"}, mantras
+assert all(m["note"] == "" for m in mantras), "mantra notes follow include_journal"
+marked = [d for d in data["discuss"] if d["type"] == "mantra_event"]
+assert len(marked) == 1 and marked[0]["summary"] == "This too shall pass" and marked[0]["mark_for_review"]
 
 r = c.get(q + "&include_journal=1", headers={"Authorization": f"Bearer {TOKEN}"})
 assert r.get_json()["journal"][0]["text"] == "Private words"
+assert any(m["note"] == "Mantra note" for d in r.get_json()["days"].values() for m in d["mantras"])
 
 r = c.get(q.replace("me@example.com", "nobody@example.com"), headers={"Authorization": f"Bearer {TOKEN}"})
 assert r.get_json()["user_found"] is False

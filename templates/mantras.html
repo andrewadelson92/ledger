@@ -3,6 +3,13 @@
 
 {% block document_title %}Ledger · Mantras{% endblock %}
 
+{% macro review_box() %}
+<label class="flex items-start gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800">
+  <input type="checkbox" name="mark_for_review" value="1" class="mt-0.5 h-4 w-4 rounded border-zinc-300">
+  <span>Mark for review <span class="block text-xs text-zinc-500">Something to bring to therapy. Listed first in the Pegasus export.</span></span>
+</label>
+{% endmacro %}
+
 {% block content %}
 <div class="mb-6">
   <a href="{{ url_for('index', tab='add') }}" class="text-sm text-zinc-600 hover:text-zinc-900">← Add</a>
@@ -22,6 +29,7 @@
       {{ field_label('Journal (optional)') }}
       {{ text_input('journal', '', rows=3, placeholder='Why this one, or how it landed…') }}
     </div>
+    {{ review_box() }}
     <button type="submit"
       class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
       Add mantra
@@ -52,6 +60,7 @@
               {{ field_label('Journal (optional)') }}
               {{ text_input('journal', '', rows=3, placeholder='What you are taking in with this…') }}
             </div>
+            {{ review_box() }}
             <button type="submit"
               class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
               Set as today’s focus
@@ -72,6 +81,7 @@
               {{ field_label('Journal (optional)') }}
               {{ text_input('journal', '', rows=3, placeholder='What changed, or why…') }}
             </div>
+            {{ review_box() }}
             <button type="submit"
               class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
               Save
