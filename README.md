@@ -15,7 +15,7 @@ Grayscale UI. Runs on Flask + SQLite locally or PostgreSQL on Railway.
 | Diary Card | Legacy; diary is now part of Today |
 | Skill Used | DBT module + skill |
 | Thought Record | Before/after emotions with reframing fields |
-| Mantras | Add, set as today’s focus, or delete; each action is logged |
+| Mantras | Add, edit, set as today’s focus, or delete; each action is logged and can be marked for review |
 | Opposite Action | Emotion + urge, fit-the-facts check, opposite action, before/after emotions |
 | ABC Worksheet | Activating event, belief, consequence |
 | Behavioral Activation | Two-step: plan joy/sadness levels → complete after activity |
@@ -78,9 +78,10 @@ See `.env.example` for a starter template.
 
 Ledger reports facts; Long Track decides what they mean. Full design: Long Track's `docs/pegasus.md`.
 
-- `GET /api/pegasus/entries?email&start&end&include_journal` — token-auth (`Authorization: Bearer $PEGASUS_TOKEN`), feeds Long Track's therapy export. Journal text only when `include_journal=1`.
+- `GET /api/pegasus/entries?email&start&end&include_journal` — token-auth (`Authorization: Bearer $PEGASUS_TOKEN`), feeds Long Track's week in review. Journal text only when `include_journal=1`.
 - On save / edit / outcome / delete of completion-shaped entries (diary card in the daily planner, emotion check-in, journal entry, skills, opposite action, behavioral activation, exposure, thought record, ABC, chain analysis), Ledger POSTs an occurrence to Long Track (`pegasus.send_occurrence`, 3s timeout, best effort — never blocks a save). The reply is stored on `Entry.pegasus_status` and shown on the entry page.
-- **Mark for review** (`Entry.mark_for_review`) lists an entry first in the Pegasus export.
+- **Mark for review** (`Entry.mark_for_review`, types in `REVIEWABLE_TYPES`) lists an entry in "Marked for review" in Long Track's Week in review. Mantra actions (`mantra_event`) are reviewable via the checkbox on the Mantras forms or the Mark / Unmark button on the entry page (`/entry/<id>/review`).
+- The period feed (`serialize_period`) sends per day: diary, skills, planner focus, and `mantras` (invoke / add / edit / delete); worksheets and marked mantras in `discuss`. Mantra notes and journal text only with `include_journal=1`.
 - Test: `PEGASUS_TOKEN=t LEDGER_DB_PATH=/tmp/ledger_pegasus_test.db .venv/bin/python scripts/test_pegasus.py`
 
 ## Deploy on Railway

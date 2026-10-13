@@ -264,7 +264,7 @@ def _skills_from_entry(entry) -> list[dict]:
 
 
 def serialize_period(user, entries, prefs, *, include_journal: bool, base_url: str) -> dict:
-    """Read-only snapshot for the Pegasus therapy export. Entries are pre-scoped to user."""
+    """Read-only snapshot for the week in review. Entries are pre-scoped to user."""
     days: dict[str, dict] = {}
 
     def day_bucket(key: str) -> dict:

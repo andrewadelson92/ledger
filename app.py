@@ -105,7 +105,7 @@ import pegasus
 
 ADD_HIDDEN_TYPES = frozenset({"exposure_checkin", "daily_goal", "diary_card", "mantra_event"})
 
-# Worksheets that can be flagged to bring to therapy (Pegasus export "Worth discussing").
+# Worksheets that can be marked for review (listed first in the week in review).
 REVIEWABLE_TYPES = frozenset({
     "mantra_event",
     "checkin",
@@ -664,7 +664,7 @@ def health():
 
 @app.route("/api/pegasus/entries", methods=["GET"])
 def api_pegasus_entries():
-    """Read-only period snapshot for Long Track's Pegasus therapy export (token auth, by email)."""
+    """Read-only period snapshot for Long Track's week in review (token auth, by email)."""
     if not pegasus.pegasus_token():
         abort(404)
     if not pegasus.token_ok(request.headers.get("Authorization")):
