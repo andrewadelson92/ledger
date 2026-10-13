@@ -437,7 +437,7 @@ def _ensure_mantras_library() -> Entry:
     return entry
 
 
-def _log_mantra_event(action: str, mantra_id: str, text: str, journal: str = "") -> Entry:
+def _log_mantra_event(action: str, mantra_id: str, text: str, journal: str = "", **extra) -> Entry:
     entry = _make_entry(
         type="mantra_event",
         payload={
@@ -446,6 +446,7 @@ def _log_mantra_event(action: str, mantra_id: str, text: str, journal: str = "")
             "text": text,
             "journal": (journal or "").strip(),
         },
+        **extra,
     )
     db.session.add(entry)
     db.session.commit()
@@ -874,6 +875,12 @@ def mantras_add():
     _touch_entry(library)
     db.session.commit()
     event = _log_mantra_event("add", mantra_id, text, journal)
+    if request.form.get("set_focus"):
+        _log_mantra_event("invoke", mantra_id, text, mark_for_review=False)
+        flash("Mantra added to today’s focus.")
+        if request.form.get("next") == "today":
+            return redirect(url_for("index", tab="today"))
+        return redirect(url_for("mantras_hub"))
     flash("Mantra added.")
     return redirect(url_for("entry_detail", entry_id=event.id))
 

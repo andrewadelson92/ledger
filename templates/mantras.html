@@ -30,10 +30,16 @@
       {{ text_input('journal', '', rows=3, placeholder='Why this one, or how it landed…') }}
     </div>
     {{ review_box() }}
-    <button type="submit"
-      class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
-      Add mantra
-    </button>
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="submit" name="set_focus" value="1"
+        class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+        Add &amp; set as today’s focus
+      </button>
+      <button type="submit"
+        class="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+        Add only
+      </button>
+    </div>
   </form>
 </section>
 
