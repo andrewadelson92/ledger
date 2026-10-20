@@ -17,7 +17,7 @@ ENTRY_TYPES = [
 ]
 
 ENTRY_TYPE_LABELS = {
-    "checkin": "Emotion Check-In",
+    "checkin": "Check-In",
     "daily_goal": "Daily Goal",
     "daily_planner": "Today",
     "diary_card": "Diary Card",

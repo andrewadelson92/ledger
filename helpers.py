@@ -114,9 +114,12 @@ def entry_summary(entry) -> str:
     t = entry.type
 
     if t == "checkin":
+        thoughts = _truncate(p.get("description"), 50)
         emotions = p.get("emotions") or []
         urges = p.get("urges") or []
         parts = []
+        if thoughts:
+            parts.append(thoughts)
         if emotions:
             names = ", ".join(e.get("name", "?") for e in emotions[:3])
             if len(emotions) > 3:
@@ -126,7 +129,7 @@ def entry_summary(entry) -> str:
             parts.append(f"{len(urges)} urge{'s' if len(urges) != 1 else ''}")
         if parts:
             return " · ".join(parts)
-        return _truncate(p.get("description")) or "Check-in"
+        return "Check-in"
 
     if t == "daily_goal":
         goal = _truncate(p.get("goal"), 60)

@@ -117,7 +117,7 @@ with app.app_context():
         pegasus.urllib.request.urlopen = real_urlopen
         os.environ.pop("LONG_TRACK_URL")
     assert [(s["trigger_type"], s["label"], s["deleted"]) for s in sent] == [
-        ("checkin", "Emotion check-in", False),
+        ("checkin", "Check-in", False),
         ("journal", "Journal entry", False),
     ], sent
     for s in sent:

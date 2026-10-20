@@ -57,7 +57,7 @@
   <div class="rounded-lg border border-zinc-200 bg-white">
     <div class="border-b border-zinc-200 px-4 py-3">
       <h2 class="text-sm font-semibold">Display</h2>
-      <p class="mt-1 text-sm text-zinc-600">Choose what shows on Emotion Check-In.</p>
+      <p class="mt-1 text-sm text-zinc-600">Choose what shows on Check-In.</p>
     </div>
     <form method="post" action="{{ url_for('settings') }}" class="px-4 py-4 space-y-4">
       <input type="hidden" name="form_kind" value="display">
@@ -67,7 +67,7 @@
           {% if show_feelings_wheel %}checked{% endif %}>
         <span>
           <span class="font-medium text-zinc-900">Show feelings wheel</span>
-          <span class="mt-0.5 block text-zinc-600">Reference image on Emotion Check-In to help locate a feeling word.</span>
+          <span class="mt-0.5 block text-zinc-600">Reference image on Check-In to help locate a feeling word.</span>
         </span>
       </label>
       <button type="submit"

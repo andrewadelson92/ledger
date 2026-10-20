@@ -206,7 +206,7 @@ def _discuss_fields(entry) -> list[list[str]]:
         return _fields([
             ("Emotions", _emotion_list(p.get("emotions"))),
             ("Urges", urges),
-            ("Description", p.get("description")),
+            ("Thoughts", p.get("description")),
         ])
     if t == "skill_used":
         return _fields([
@@ -364,7 +364,7 @@ def occurrence_for(entry) -> dict | None:
             return None
         trigger, label = "diary_card", "Diary card"
     elif t == "checkin":
-        trigger, label = "checkin", "Emotion check-in"
+        trigger, label = "checkin", "Check-in"
     elif t == "journal":
         trigger, label = "journal", "Journal entry"
     elif t in ("skill_used", "daily_goal"):
