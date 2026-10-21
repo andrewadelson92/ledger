@@ -151,10 +151,12 @@
       </div>
       {% endif %}
 
-      {% if plan.committed_actions %}
+      {% set actions = normalize_committed_actions(plan.committed_actions) %}
+      {% if actions %}
       <div class="border-t border-zinc-100 pt-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-1">Committed actions</h3>
-        <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ plan.committed_actions }}</p>
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Committed actions</h3>
+        {% from "macros/committed_actions.html" import committed_actions_list %}
+        {{ committed_actions_list(actions) }}
       </div>
       {% endif %}
 

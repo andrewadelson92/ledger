@@ -80,6 +80,37 @@ def agenda_slots_for_form(payload: dict | None = None) -> list[dict]:
     ]
 
 
+def normalize_committed_actions(raw) -> list[str]:
+    """List of action strings; splits legacy freeform text on newlines."""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        return [line.strip() for line in raw.splitlines() if line.strip()]
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for item in raw:
+        if isinstance(item, str):
+            text = item.strip()
+        elif isinstance(item, dict):
+            text = (item.get("text") or "").strip()
+        else:
+            continue
+        if text:
+            out.append(text)
+    return out
+
+
+def parse_committed_actions_json(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return normalize_committed_actions(data)
+
+
 def entry_log_label(entry) -> str:
     label = type_label(entry.type)
     p = entry.payload or {}
@@ -711,7 +742,9 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
         payload = {
             "focus": (form.get("focus") or form.get("intentions") or "").strip(),
             "tiny_better_reward": (form.get("tiny_better_reward") or "").strip(),
-            "committed_actions": (form.get("committed_actions") or "").strip(),
+            "committed_actions": parse_committed_actions_json(
+                form.get("committed_actions_json")
+            ),
             "agenda": parse_agenda_slots(form),
             "noted_emotions": parse_emotions_json(
                 form.get("noted_emotions_json"),

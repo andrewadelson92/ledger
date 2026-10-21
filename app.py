@@ -96,6 +96,7 @@ from helpers import (
     emotion_wheel_excluding,
     daily_planner_focus,
     daily_planner_has_diary,
+    normalize_committed_actions,
     diary_card_extra_emotions,
     mantra_library_items,
     todays_invoked_mantras,
@@ -191,6 +192,7 @@ def inject_globals():
         "format_planner_hour": format_planner_hour,
         "daily_planner_focus": daily_planner_focus,
         "daily_planner_has_diary": daily_planner_has_diary,
+        "normalize_committed_actions": normalize_committed_actions,
         "current_user": current_user,
         "is_demo": _is_demo,
         "demo_user_email": DEMO_USER_EMAIL if _is_demo else None,
@@ -215,6 +217,7 @@ for _name, _fn in (
     ("format_planner_hour", format_planner_hour),
     ("daily_planner_focus", daily_planner_focus),
     ("daily_planner_has_diary", daily_planner_has_diary),
+    ("normalize_committed_actions", normalize_committed_actions),
 ):
     app.add_template_global(_fn, _name)
 

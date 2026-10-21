@@ -1,0 +1,135 @@
+{% macro committed_actions_editor(actions=[]) %}
+<div class="committed-actions-editor space-y-3">
+  <ul class="committed-action-rows space-y-2"></ul>
+  <p class="text-sm text-zinc-500 empty-hint{% if actions %} hidden{% endif %}">No actions yet.</p>
+  <div class="flex gap-2">
+    <input type="text"
+      class="new-action-input flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+      placeholder="Add an action…"
+      autocomplete="off">
+    <button type="button"
+      class="add-action-btn shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+      Add
+    </button>
+  </div>
+  <input type="hidden" name="committed_actions_json" class="committed-actions-json" value="">
+  <script type="application/json" class="committed-actions-initial">{{ actions|tojson }}</script>
+</div>
+
+<script>
+(function() {
+  const script = document.currentScript;
+  const container = script.previousElementSibling;
+  if (!container || !container.classList.contains('committed-actions-editor')) return;
+
+  const rowsWrap = container.querySelector('.committed-action-rows');
+  const emptyHint = container.querySelector('.empty-hint');
+  const input = container.querySelector('.new-action-input');
+  const addBtn = container.querySelector('.add-action-btn');
+  const hidden = container.querySelector('.committed-actions-json');
+
+  let rows = [];
+  try {
+    const initial = JSON.parse(container.querySelector('.committed-actions-initial').textContent || '[]');
+    if (Array.isArray(initial)) {
+      initial.forEach(function(item) {
+        const text = typeof item === 'string' ? item : (item && item.text) || '';
+        if ((text || '').trim()) rows.push({ text: text.trim() });
+      });
+    }
+  } catch (e) {}
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+
+  function sync() {
+    hidden.value = JSON.stringify(rows.map(function(r) { return r.text; }));
+    emptyHint.classList.toggle('hidden', rows.length > 0);
+  }
+
+  function render() {
+    rowsWrap.innerHTML = '';
+    rows.forEach(function(row, index) {
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2';
+      li.innerHTML =
+        '<input type="text" class="action-text flex-1 min-w-0 border-0 bg-transparent p-0 text-sm text-zinc-900 focus:outline-none focus:ring-0" value="' + escapeHtml(row.text) + '" aria-label="Committed action">' +
+        '<button type="button" class="remove-action shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Remove action">&times;</button>';
+      const textInput = li.querySelector('.action-text');
+      textInput.addEventListener('input', function() {
+        row.text = textInput.value;
+        sync();
+      });
+      textInput.addEventListener('blur', function() {
+        row.text = (textInput.value || '').trim();
+        if (!row.text) {
+          rows.splice(index, 1);
+          render();
+          sync();
+          return;
+        }
+        textInput.value = row.text;
+        sync();
+      });
+      li.querySelector('.remove-action').addEventListener('click', function() {
+        rows.splice(index, 1);
+        render();
+        sync();
+      });
+      rowsWrap.appendChild(li);
+    });
+  }
+
+  function addAction() {
+    const text = (input.value || '').trim();
+    if (!text) return;
+    rows.push({ text: text });
+    input.value = '';
+    render();
+    sync();
+    input.focus();
+  }
+
+  addBtn.addEventListener('click', addAction);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addAction();
+    }
+  });
+
+  const form = container.closest('form');
+  if (form) {
+    form.addEventListener('submit', function() {
+      const pending = (input.value || '').trim();
+      if (pending) {
+        rows.push({ text: pending });
+        input.value = '';
+      }
+      rows = rows
+        .map(function(r) { return { text: (r.text || '').trim() }; })
+        .filter(function(r) { return r.text; });
+      render();
+      sync();
+    });
+  }
+
+  render();
+  sync();
+})();
+</script>
+{% endmacro %}
+
+{% macro committed_actions_list(actions) %}
+{% if actions %}
+<ul class="space-y-2">
+  {% for action in actions %}
+  <li class="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">{{ action }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}

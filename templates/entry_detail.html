@@ -219,10 +219,12 @@
     {% endif %}
   </div>
   {% endif %}
-  {% if p.committed_actions %}
+  {% set actions = normalize_committed_actions(p.committed_actions) %}
+  {% if actions %}
   <div class="rounded-lg border border-zinc-200 bg-white p-4">
-    <h2 class="text-sm font-medium text-zinc-800 mb-1">Committed actions</h2>
-    <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p.committed_actions }}</p>
+    <h2 class="text-sm font-medium text-zinc-800 mb-2">Committed actions</h2>
+    {% from "macros/committed_actions.html" import committed_actions_list %}
+    {{ committed_actions_list(actions) }}
   </div>
   {% endif %}
   {% if p.agenda %}
