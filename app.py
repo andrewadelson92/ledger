@@ -349,6 +349,9 @@ def index():
         in_progress_items=in_progress_items,
         todays_daily_planner=_todays_daily_planner(),
         invoked_mantras=todays_invoked_mantras(entries, LOCAL_TZ),
+        mantra_library=mantra_library_items(
+            (lib.payload if (lib := _current_mantras()) else None)
+        ),
         today_label=today_label,
         daily_planner_focus=daily_planner_focus,
         daily_planner_has_diary=daily_planner_has_diary,
@@ -900,6 +903,8 @@ def mantras_invoke():
         return redirect(url_for("mantras_hub"))
     event = _log_mantra_event("invoke", match["id"], match["text"], journal)
     flash("Mantra set as today’s focus.")
+    if request.form.get("next") == "today":
+        return redirect(url_for("index", tab="today"))
     return redirect(url_for("entry_detail", entry_id=event.id))
 
 

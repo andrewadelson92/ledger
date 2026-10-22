@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block document_title %}Ledger · Home{% endblock %}
 
-{% macro todays_focus_items(mantras) %}
+{% macro todays_focus_items(mantras, library=[]) %}
+{% set focus_ids = mantras|map(attribute='id')|list %}
+{% set available = library|rejectattr('id', 'in', focus_ids)|list %}
 <div class="mb-2 flex items-center justify-between gap-3">
   <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Today’s focus</h3>
   <a href="{{ url_for('mantras_hub') }}"
@@ -14,20 +16,32 @@
   {% endfor %}
 </ul>
 {% endif %}
+{% if available %}
 <details class="{{ 'mt-2' if mantras else '' }}">
-  <summary class="cursor-pointer list-none text-xs text-zinc-500 hover:text-zinc-900 marker:content-none">+ New mantra</summary>
-  <form method="post" action="{{ url_for('mantras_add') }}" class="mt-2 space-y-2">
-    <input type="hidden" name="set_focus" value="1">
-    <input type="hidden" name="next" value="today">
-    <textarea name="text" rows="2" required
-      class="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-      placeholder="A line to carry today…"></textarea>
-    <button type="submit"
-      class="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800">
-      Add to today’s focus
-    </button>
-  </form>
+  <summary class="cursor-pointer list-none text-xs text-zinc-500 hover:text-zinc-900 marker:content-none">+ Set today’s focus</summary>
+  <ul class="mt-2 space-y-2">
+    {% for m in available %}
+    <li>
+      <form method="post" action="{{ url_for('mantras_invoke') }}" class="flex items-start gap-2">
+        <input type="hidden" name="mantra_id" value="{{ m.id }}">
+        <input type="hidden" name="next" value="today">
+        <p class="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 whitespace-pre-wrap">{{ m.text }}</p>
+        <button type="submit"
+          class="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50">
+          Use
+        </button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
 </details>
+{% elif not mantras %}
+<p class="text-xs text-zinc-500">
+  No mantras yet.
+  <a href="{{ url_for('mantras_hub') }}" class="text-zinc-700 underline hover:text-zinc-900">Add one</a>
+  to set today’s focus.
+</p>
+{% endif %}
 {% endmacro %}
 
 {% block content %}
@@ -95,7 +109,7 @@
       {% endif %}
 
       <div class="border-t border-zinc-100 pt-4">
-        {{ todays_focus_items(invoked_mantras) }}
+        {{ todays_focus_items(invoked_mantras, mantra_library) }}
       </div>
 
       {% if daily_planner_has_diary(plan) %}
@@ -181,7 +195,7 @@
       <p class="mt-1 text-sm text-zinc-600">Set your focus, complete a diary card, and note other emotions.</p>
     </a>
     <div class="mt-4 rounded-lg border border-zinc-200 bg-white p-4">
-      {{ todays_focus_items(invoked_mantras) }}
+      {{ todays_focus_items(invoked_mantras, mantra_library) }}
     </div>
     {% endif %}
   </section>
