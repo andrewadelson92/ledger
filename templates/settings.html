@@ -7,6 +7,14 @@
     <p class="mt-1 text-sm text-zinc-600">Signed in as {{ current_user.email }}</p>
   </div>
 
+  <a href="{{ url_for('guide') }}"
+     class="block rounded-lg border border-zinc-200 bg-white px-4 py-3 hover:border-zinc-300">
+    <p class="text-sm font-semibold text-zinc-900">How to use Ledger</p>
+    <p class="mt-1 text-sm text-zinc-600">
+      Set up tracked emotions and behaviors, then a short tour of Today, Check-In, Add, and the Log.
+    </p>
+  </a>
+
   {% if is_demo %}
   <div class="rounded-lg border border-zinc-300 bg-zinc-100">
     <div class="border-b border-zinc-300 px-4 py-3">

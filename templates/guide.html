@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block document_title %}Guide · Ledger{% endblock %}
+{% block content %}
+<article class="space-y-10">
+  <header>
+    <p class="text-sm text-zinc-500">
+      <a href="{{ url_for('settings') }}" class="hover:text-zinc-900">← Settings</a>
+    </p>
+    <h1 class="mt-3 text-xl font-semibold tracking-tight text-zinc-900">How to use Ledger</h1>
+    <p class="mt-2 text-sm text-zinc-600 max-w-prose">
+      Ledger is a calm practice log — check in with what’s here, plan the day, and record skills work.
+      Nothing is required. Use only the pieces that help.
+    </p>
+  </header>
+
+  <nav aria-label="On this page" class="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+    <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">On this page</p>
+    <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-700">
+      <li><a href="#setup" class="underline hover:text-zinc-900">Set up</a></li>
+      <li><a href="#today" class="underline hover:text-zinc-900">Today</a></li>
+      <li><a href="#checkin" class="underline hover:text-zinc-900">Check-in</a></li>
+      <li><a href="#add" class="underline hover:text-zinc-900">Add tools</a></li>
+      <li><a href="#mantras" class="underline hover:text-zinc-900">Mantras</a></li>
+      <li><a href="#log" class="underline hover:text-zinc-900">Log</a></li>
+      <li><a href="#tips" class="underline hover:text-zinc-900">Tips</a></li>
+    </ul>
+  </nav>
+
+  <section id="setup" class="scroll-mt-6 space-y-4">
+    <h2 class="text-base font-semibold text-zinc-900">1. Set yourself up</h2>
+    <p class="text-sm text-zinc-600 max-w-prose">
+      Start in
+      <a href="{{ url_for('settings') }}" class="underline hover:text-zinc-900">Settings</a>.
+      These lists follow you across Today, Check-In, and diary-style forms.
+    </p>
+    <ul class="space-y-3 text-sm text-zinc-700">
+      <li class="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+        <p class="font-medium text-zinc-900">Tracked emotions</p>
+        <p class="mt-1 text-zinc-600">
+          Short list of feelings you want easy access to (e.g. Content, Anxious).
+          On forms they appear as chips — tap one only when you want to rate it (1–5).
+          Untouched emotions are not saved, so you won’t get a wall of “3”s.
+        </p>
+      </li>
+      <li class="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+        <p class="font-medium text-zinc-900">Target behaviors</p>
+        <p class="mt-1 text-zinc-600">
+          Behaviors you’re watching urges around. Used on Today and when you note an urge on Check-In.
+          You can also add one on the form itself; it stays in your list.
+        </p>
+      </li>
+      <li class="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+        <p class="font-medium text-zinc-900">Feelings wheel</p>
+        <p class="mt-1 text-zinc-600">
+          Optional reference image on Check-In to find a more precise word. Turn it off in Display if you don’t need it.
+        </p>
+      </li>
+      <li class="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+        <p class="font-medium text-zinc-900">Saved customs</p>
+        <p class="mt-1 text-zinc-600">
+          When you type your own emotion or skill via “Other,” Ledger remembers it for next time under Saved.
+          Remove a saved item from any picker and it’s gone everywhere for you.
+        </p>
+      </li>
+    </ul>
+  </section>
+
+  <section id="today" class="scroll-mt-6 space-y-3">
+    <h2 class="text-base font-semibold text-zinc-900">2. Today — the daily anchor</h2>
+    <p class="text-sm text-zinc-600 max-w-prose">
+      <a href="{{ url_for('index', tab='today') }}" class="underline hover:text-zinc-900">Today</a>
+      is one entry for the day. Open it from the home tab, or Start today if you haven’t filled it yet.
+    </p>
+    <ul class="list-disc space-y-2 pl-5 text-sm text-zinc-700">
+      <li><span class="font-medium text-zinc-900">Emotions</span> — rate tracked chips only if they apply; add other emotions if you want.</li>
+      <li><span class="font-medium text-zinc-900">Target behavior urges</span> — optional 1–5 ratings.</li>
+      <li><span class="font-medium text-zinc-900">Daily affirmation</span> — a short line to carry.</li>
+      <li><span class="font-medium text-zinc-900">How I show up</span> — stance for the day (required).</li>
+      <li><span class="font-medium text-zinc-900">A tiny bit better</span> — small improvement + reward.</li>
+      <li><span class="font-medium text-zinc-900">Committed actions</span> — add/edit/remove concrete actions (done tracking lives in Long Track).</li>
+      <li><span class="font-medium text-zinc-900">Hour-by-hour agenda</span> — optional; only fill hours that matter.</li>
+    </ul>
+    <p class="text-sm text-zinc-600 max-w-prose">
+      <span class="font-medium text-zinc-800">Today’s focus</span> on the home card comes from mantras you’ve set as focus — pick from existing mantras, don’t create new ones there.
+    </p>
+  </section>
+
+  <section id="checkin" class="scroll-mt-6 space-y-3">
+    <h2 class="text-base font-semibold text-zinc-900">3. Check-In — quick notice</h2>
+    <p class="text-sm text-zinc-600 max-w-prose">
+      Use
+      <a href="{{ url_for('new_entry', entry_type='checkin') }}" class="underline hover:text-zinc-900">Check-In</a>
+      when something is present and you want to set it down without filling a full day plan.
+    </p>
+    <ul class="list-disc space-y-2 pl-5 text-sm text-zinc-700">
+      <li>Tap tracked emotions to rate, or skip them.</li>
+      <li>Add other emotions by name (intensity optional).</li>
+      <li>Write thoughts — what’s the mind saying.</li>
+      <li>Urges stay tucked under “Any urge present?” so they don’t dominate.</li>
+    </ul>
+  </section>
+
+  <section id="add" class="scroll-mt-6 space-y-3">
+    <h2 class="text-base font-semibold text-zinc-900">4. Add — skills &amp; worksheets</h2>
+    <p class="text-sm text-zinc-600 max-w-prose">
+      The
+      <a href="{{ url_for('index', tab='add') }}" class="underline hover:text-zinc-900">Add</a>
+      tab lists practice tools. Ratings use a shared 1–5 slider. Older entries kept on a 1–10 scale stay that way when you edit them.
+    </p>
+    <ul class="list-disc space-y-2 pl-5 text-sm text-zinc-700">
+      <li><span class="font-medium text-zinc-900">Skill used</span> — which DBT module and skill you practiced.</li>
+      <li><span class="font-medium text-zinc-900">Thought record</span> — situation, thought, emotions before/after, validity, alternative thought.</li>
+      <li><span class="font-medium text-zinc-900">Opposite action</span> — plan, then come back later to re-rate after you act.</li>
+      <li><span class="font-medium text-zinc-900">Behavioral activation / Exposure</span> — two-step: save a plan, complete outcome from Home → In progress.</li>
+      <li><span class="font-medium text-zinc-900">ABC / Chain analysis</span> — structured worksheets when you need them.</li>
+      <li><span class="font-medium text-zinc-900">Journal</span> — write and/or record audio from the microphone. Text or a recording is enough.</li>
+    </ul>
+  </section>
+
+  <section id="mantras" class="scroll-mt-6 space-y-3">
+    <h2 class="text-base font-semibold text-zinc-900">5. Mantras</h2>
+    <p class="text-sm text-zinc-600 max-w-prose">
+      Open Mantras from Add. Create and edit your library there. From Home you only
+      <span class="font-medium text-zinc-800">set today’s focus</span> from mantras you already have.
+      Each add / focus / edit / delete is logged.
+    </p>
+  </section>
+
+  <section id="log" class="scroll-mt-6 space-y-3">
+    <h2 class="text-base font-semibold text-zinc-900">6. Log</h2>
+    <p class="text-sm text-zinc-600 max-w-prose">
+      <a href="{{ url_for('index', tab='log') }}" class="underline hover:text-zinc-900">Log</a>
+      is your history. Open any entry to review, edit, or finish an in-progress outcome.
+      Some entries can be marked for review (e.g. for therapy export).
+    </p>
+  </section>
+
+  <section id="tips" class="scroll-mt-6 space-y-3">
+    <h2 class="text-base font-semibold text-zinc-900">Tips</h2>
+    <ul class="list-disc space-y-2 pl-5 text-sm text-zinc-700">
+      <li>Less is fine. A check-in with one thought counts.</li>
+      <li>Keep tracked emotions short — five or fewer is usually enough.</li>
+      <li>Invite others from Settings if you share an instance (invite-only registration).</li>
+      <li>If you use Long Track, completed moments can sync there automatically when the bridge is configured.</li>
+    </ul>
+  </section>
+
+  <p class="border-t border-zinc-200 pt-6 text-sm text-zinc-500">
+    <a href="{{ url_for('settings') }}" class="underline hover:text-zinc-900">Back to Settings</a>
+    ·
+    <a href="{{ url_for('index', tab='today') }}" class="underline hover:text-zinc-900">Go to Today</a>
+  </p>
+</article>
+{% endblock %}

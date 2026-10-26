@@ -1273,6 +1273,11 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/guide")
+def guide():
+    return render_template("guide.html")
+
+
 @app.route("/settings", methods=["GET", "POST"])
 def settings():
     prefs = get_or_create_preferences()
