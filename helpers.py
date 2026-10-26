@@ -378,12 +378,14 @@ def diary_card_extra_emotions(
         name = (item.get("name") or "").strip()
         if not name or name.lower() in fixed:
             continue
+        entry: dict[str, Any] = {"name": name}
         intensity = item.get("intensity")
-        try:
-            intensity = max(1, min(5, int(intensity)))
-        except (TypeError, ValueError):
-            intensity = 3
-        out.append({"name": name, "intensity": intensity})
+        if intensity not in (None, ""):
+            try:
+                entry["intensity"] = max(1, min(5, int(intensity)))
+            except (TypeError, ValueError):
+                pass
+        out.append(entry)
     return out
 
 
@@ -554,15 +556,14 @@ def parse_diary_card_emotions(form, tracked: list[str] | None = None) -> list[di
         intensity = parse_int(form.get(key), default=3) or 3
         out.append({"name": name, "intensity": max(1, min(5, intensity))})
     fixed_lower = {name.lower() for name in tracked_names}
-    for item in parse_emotions_json(form.get("extra_emotions_json")):
+    for item in parse_emotions_json(
+        form.get("extra_emotions_json"),
+        include_intensity=False,
+        optional_intensity=True,
+    ):
         name = item.get("name", "").strip()
         if name and name.lower() not in fixed_lower:
-            intensity = item.get("intensity", 3)
-            try:
-                intensity = max(1, min(5, int(intensity)))
-            except (TypeError, ValueError):
-                intensity = 3
-            out.append({"name": name, "intensity": intensity})
+            out.append(item)
     return out
 
 
@@ -722,11 +723,7 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
 
     if entry_type == "checkin":
         payload = {
-            "emotions": parse_emotions_json(
-                form.get("emotions_json"),
-                include_intensity=False,
-                optional_intensity=True,
-            ),
+            "emotions": parse_diary_card_emotions(form),
             "urges": parse_urges_json(form.get("urges_json")),
             "description": (form.get("description") or "").strip(),
         }

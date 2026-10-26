@@ -30,7 +30,8 @@
     </ul>
 
     <div class="mt-4">
-      <h3 class="text-sm font-medium text-zinc-800 mb-2">Additional emotions</h3>
+      <h3 class="text-sm font-medium text-zinc-800 mb-1">Other emotions</h3>
+      <p class="text-sm text-zinc-600 mb-3">Anything beyond the tracked scale. Intensity is available if you want it.</p>
       {{ emotion_wheel_picker(
         emotion_wheel,
         'extra_emotions_json',
@@ -38,7 +39,11 @@
         'intensity',
         5,
         start_empty=true,
-        add_label='Add another emotion'
+        show_intensity=false,
+        optional_intensity=true,
+        show_picker_hint=false,
+        add_label='Add emotion',
+        exclude_emotions=diary_card_emotions
       ) }}
     </div>
   </section>

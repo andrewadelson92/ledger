@@ -548,7 +548,12 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         ctx["audio_clips"] = _clips_for_ids(ctx["payload"].get("audio_clip_ids"))
     if entry_type == "checkin":
         prefs = get_or_create_preferences()
+        tracked = list(prefs.diary_emotions or DIARY_CARD_EMOTIONS)
         ctx["show_feelings_wheel"] = bool(prefs.show_feelings_wheel)
+        ctx["diary_card_emotions"] = tracked
+        ctx["extra_emotions"] = diary_card_extra_emotions(
+            ctx["payload"].get("emotions"), tracked
+        )
         ctx["default_target_behaviors"] = list(
             prefs.target_behaviors or DEFAULT_TARGET_BEHAVIORS
         )
