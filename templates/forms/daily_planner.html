@@ -3,6 +3,7 @@
 {% from "macros/emotion_wheel.html" import emotion_wheel_picker %}
 {% from "macros/target_behaviors.html" import target_behavior_urges %}
 {% from "macros/committed_actions.html" import committed_actions_editor %}
+{% from "macros/tracked_emotions.html" import tracked_emotions_opt_in %}
 
 {% block document_title %}Ledger · {{ entry_label }}{% endblock %}
 
@@ -18,19 +19,13 @@
   <section class="space-y-6">
     <div>
       <h2 class="text-sm font-medium text-zinc-800 mb-1">Emotions</h2>
-      <p class="text-sm text-zinc-600 mb-3">Rate how you feel right now (1–5). <a href="{{ url_for('settings') }}" class="text-zinc-800 underline hover:text-zinc-900">Manage tracked emotions</a></p>
-      <ul class="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-        {% for name, intensity in diary_card_emotion_values(payload.diary_emotions, diary_card_emotions) %}
-        <li class="flex items-center gap-3">
-          <span class="text-sm font-medium text-zinc-800 w-28 shrink-0">{{ name }}</span>
-          <input type="range" min="1" max="5" value="{{ intensity }}"
-            name="{{ diary_emotion_field_name(name) }}"
-            class="flex-1 accent-zinc-900 diary-fixed-intensity"
-            aria-label="{{ name }} intensity">
-          <span class="text-sm text-zinc-600 w-6 text-center intensity-val">{{ intensity }}</span>
-        </li>
-        {% endfor %}
-      </ul>
+      <p class="text-sm text-zinc-600 mb-3">
+        Tap a tracked emotion to rate it (1–5) — only what applies.
+        <a href="{{ url_for('settings') }}" class="text-zinc-800 underline hover:text-zinc-900">Manage tracked emotions</a>
+      </p>
+      <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+        {{ tracked_emotions_opt_in(payload.diary_emotions or [], diary_card_emotions) }}
+      </div>
 
       <div class="mt-4">
         <h3 class="text-sm font-medium text-zinc-800 mb-1">Other emotions</h3>
@@ -103,16 +98,4 @@
 
   {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index', tab='today')) }}
 </form>
-
-<script>
-(function() {
-  document.querySelectorAll('.diary-fixed-intensity').forEach(function(slider) {
-    const val = slider.nextElementSibling;
-    if (!val) return;
-    slider.addEventListener('input', function() {
-      val.textContent = slider.value;
-    });
-  });
-})();
-</script>
 {% endblock %}

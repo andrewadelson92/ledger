@@ -345,21 +345,32 @@ def parse_emotions_json(
 def diary_card_emotion_values(
     emotions: list | None = None,
     tracked: list[str] | None = None,
-) -> list[tuple[str, int]]:
+) -> list[tuple[str, int | None]]:
+    """Tracked emotion rows for forms: (name, intensity). Intensity is None until rated."""
     tracked_names = [
         (n or "").strip()
         for n in (tracked if tracked is not None else DIARY_CARD_EMOTIONS)
         if (n or "").strip()
     ]
-    by_name = {
-        e.get("name"): e.get("intensity")
-        for e in (emotions or [])
-        if isinstance(e, dict) and e.get("name")
-    }
-    return [
-        (name, max(1, min(5, int(by_name[name]) if by_name.get(name) is not None else 3)))
-        for name in tracked_names
-    ]
+    by_name: dict[str, Any] = {}
+    for e in emotions or []:
+        if not isinstance(e, dict):
+            continue
+        name = (e.get("name") or "").strip()
+        if not name:
+            continue
+        by_name[name.lower()] = e.get("intensity")
+    out: list[tuple[str, int | None]] = []
+    for name in tracked_names:
+        raw = by_name.get(name.lower())
+        if raw in (None, ""):
+            out.append((name, None))
+            continue
+        try:
+            out.append((name, max(1, min(5, int(raw)))))
+        except (TypeError, ValueError):
+            out.append((name, None))
+    return out
 
 
 def diary_card_extra_emotions(
@@ -525,21 +536,11 @@ def parse_embedded_diary_card(form) -> tuple[list[dict], list[dict]]:
         e for e in emotions
         if isinstance(e, dict) and (e.get("name") or "").strip().lower() not in fixed
     ]
-    fixed_changed = False
-    for e in emotions:
-        if not isinstance(e, dict):
-            continue
-        name = (e.get("name") or "").strip().lower()
-        if name not in fixed:
-            continue
-        try:
-            if int(e.get("intensity", 3)) != 3:
-                fixed_changed = True
-                break
-        except (TypeError, ValueError):
-            fixed_changed = True
-            break
-    if not urges and not extras and not fixed_changed:
+    tracked_rated = [
+        e for e in emotions
+        if isinstance(e, dict) and (e.get("name") or "").strip().lower() in fixed
+    ]
+    if not urges and not extras and not tracked_rated:
         return [], []
     return emotions, urges
 
@@ -553,7 +554,11 @@ def parse_diary_card_emotions(form, tracked: list[str] | None = None) -> list[di
     out = []
     for name in tracked_names:
         key = diary_emotion_field_name(name)
-        intensity = parse_int(form.get(key), default=3) or 3
+        if form.get(key) is None:
+            continue
+        intensity = parse_int(form.get(key))
+        if intensity is None:
+            continue
         out.append({"name": name, "intensity": max(1, min(5, intensity))})
     fixed_lower = {name.lower() for name in tracked_names}
     for item in parse_emotions_json(
