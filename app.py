@@ -808,12 +808,6 @@ def new_entry(entry_type):
             flash("Daily goal saved.")
             return redirect(url_for("index", tab="today"))
         if entry_type == "daily_planner":
-            if not payload.get("focus"):
-                flash("How I show up is required.")
-                return render_template(
-                    f"forms/{entry_type}.html",
-                    **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
-                )
             _save_daily_planner(payload)
             flash("Today saved.")
             return redirect(url_for("index", tab="today"))
@@ -1178,21 +1172,6 @@ def entry_edit(entry_id):
                 )
             if not payload.get("skills"):
                 flash("Add at least one skill used for your daily goal.")
-                return render_template(
-                    f"forms/{entry.type}.html",
-                    **_form_render_ctx(
-                        entry.type,
-                        payload,
-                        is_edit=True,
-                        entry_id=entry.id,
-                        exposure_plans=[],
-                        linked_entry_id=entry.linked_entry_id,
-                        secondary_tag=entry.secondary_tag,
-                    ),
-                )
-        if entry.type == "daily_planner":
-            if not payload.get("focus"):
-                flash("How I show up is required.")
                 return render_template(
                     f"forms/{entry.type}.html",
                     **_form_render_ctx(
