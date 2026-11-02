@@ -1,10 +1,11 @@
-{% macro tracked_emotions_opt_in(emotions=[], tracked=[]) %}
+{% macro tracked_emotions_opt_in(emotions=[], tracked=[], optional_intensity=false) %}
 <div class="tracked-emotions-opt-in space-y-3"
   data-tracked='{{ tracked|tojson }}'
-  data-initial='{{ diary_card_emotion_values(emotions, tracked)|tojson }}'>
+  data-optional-intensity="{{ 'true' if optional_intensity else 'false' }}"
+  data-initial='{% if optional_intensity %}{{ emotions|tojson }}{% else %}{{ diary_card_emotion_values(emotions, tracked)|tojson }}{% endif %}'>
   <div class="tracked-emotion-chips flex flex-wrap gap-2"></div>
   <ul class="tracked-emotion-rows space-y-3"></ul>
-  <p class="text-xs text-zinc-500 tracked-empty-hint">Tap an emotion to rate it. Skip any that don’t apply.</p>
+  <p class="text-xs text-zinc-500 tracked-empty-hint">{% if optional_intensity %}Tap an emotion to include it. Add intensity if you want it.{% else %}Tap an emotion to rate it. Skip any that don’t apply.{% endif %}</p>
 </div>
 
 <script>
@@ -21,13 +22,26 @@
   let initial = [];
   try { tracked = JSON.parse(container.dataset.tracked || '[]'); } catch (e) {}
   try { initial = JSON.parse(container.dataset.initial || '[]'); } catch (e) {}
+  const optionalIntensity = container.dataset.optionalIntensity === 'true';
 
   const rated = {};
-  (Array.isArray(initial) ? initial : []).forEach(function(row) {
-    const name = Array.isArray(row) ? row[0] : (row && row[0]);
-    const intensity = Array.isArray(row) ? row[1] : null;
-    if (name && intensity != null) rated[name] = intensity;
-  });
+  if (optionalIntensity) {
+    (Array.isArray(initial) ? initial : []).forEach(function(row) {
+      if (!row || typeof row !== 'object' || Array.isArray(row) || !row.name) return;
+      const match = tracked.find(function(n) {
+        return String(n).toLowerCase() === String(row.name).toLowerCase();
+      });
+      if (!match) return;
+      const intensity = row.intensity;
+      rated[match] = (intensity == null || intensity === '') ? null : intensity;
+    });
+  } else {
+    (Array.isArray(initial) ? initial : []).forEach(function(row) {
+      const name = Array.isArray(row) ? row[0] : (row && row[0]);
+      const intensity = Array.isArray(row) ? row[1] : null;
+      if (name && intensity != null) rated[name] = intensity;
+    });
+  }
 
   function fieldName(name) {
     return 'diary_emotion_' + String(name).toLowerCase().replace(/ /g, '_');
@@ -47,13 +61,13 @@
     emptyHint.classList.toggle('hidden', ratedNames.length > 0);
 
     tracked.forEach(function(name) {
-      if (rated[name] != null) return;
+      if (Object.prototype.hasOwnProperty.call(rated, name)) return;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50';
       btn.textContent = name;
       btn.addEventListener('click', function() {
-        rated[name] = 3;
+        rated[name] = optionalIntensity ? null : 3;
         render();
       });
       chipsWrap.appendChild(btn);
@@ -63,18 +77,48 @@
       const intensity = rated[name];
       const li = document.createElement('li');
       li.className = 'flex items-center gap-3 rounded-md border border-zinc-200 bg-white px-3 py-2';
-      li.innerHTML =
-        '<span class="text-sm font-medium text-zinc-800 w-28 shrink-0">' + escapeHtml(name) + '</span>' +
-        '<input type="range" min="1" max="5" value="' + intensity + '" name="' + escapeHtml(fieldName(name)) + '" ' +
-          'class="flex-1 accent-zinc-900 tracked-intensity" aria-label="' + escapeHtml(name) + ' intensity">' +
-        '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + intensity + '</span>' +
-        '<button type="button" class="clear-tracked shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Clear ' + escapeHtml(name) + '">&times;</button>';
-      const slider = li.querySelector('.tracked-intensity');
-      const val = li.querySelector('.intensity-val');
-      slider.addEventListener('input', function() {
-        rated[name] = parseInt(slider.value, 10);
-        val.textContent = slider.value;
-      });
+      if (optionalIntensity && intensity == null) {
+        li.innerHTML =
+          '<span class="text-sm font-medium text-zinc-800 min-w-0 flex-1">' + escapeHtml(name) + '</span>' +
+          '<button type="button" class="add-intensity shrink-0 text-xs text-zinc-400 hover:text-zinc-700">+ intensity</button>' +
+          '<button type="button" class="clear-tracked shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Remove ' + escapeHtml(name) + '">&times;</button>' +
+          '<input type="hidden" name="' + escapeHtml(fieldName(name)) + '" value="">';
+        li.querySelector('.add-intensity').addEventListener('click', function() {
+          rated[name] = 3;
+          render();
+        });
+      } else if (optionalIntensity) {
+        li.innerHTML =
+          '<span class="text-sm font-medium text-zinc-800 w-28 shrink-0">' + escapeHtml(name) + '</span>' +
+          '<input type="range" min="1" max="5" value="' + intensity + '" name="' + escapeHtml(fieldName(name)) + '" ' +
+            'class="flex-1 accent-zinc-900 tracked-intensity" aria-label="' + escapeHtml(name) + ' intensity">' +
+          '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + intensity + '</span>' +
+          '<button type="button" class="clear-intensity shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Remove intensity">&times;</button>' +
+          '<button type="button" class="clear-tracked shrink-0 text-xs text-zinc-500 hover:text-zinc-900">Remove</button>';
+        const slider = li.querySelector('.tracked-intensity');
+        const val = li.querySelector('.intensity-val');
+        slider.addEventListener('input', function() {
+          rated[name] = parseInt(slider.value, 10);
+          val.textContent = slider.value;
+        });
+        li.querySelector('.clear-intensity').addEventListener('click', function() {
+          rated[name] = null;
+          render();
+        });
+      } else {
+        li.innerHTML =
+          '<span class="text-sm font-medium text-zinc-800 w-28 shrink-0">' + escapeHtml(name) + '</span>' +
+          '<input type="range" min="1" max="5" value="' + intensity + '" name="' + escapeHtml(fieldName(name)) + '" ' +
+            'class="flex-1 accent-zinc-900 tracked-intensity" aria-label="' + escapeHtml(name) + ' intensity">' +
+          '<span class="text-sm text-zinc-600 w-6 text-center intensity-val">' + intensity + '</span>' +
+          '<button type="button" class="clear-tracked shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Clear ' + escapeHtml(name) + '">&times;</button>';
+        const slider = li.querySelector('.tracked-intensity');
+        const val = li.querySelector('.intensity-val');
+        slider.addEventListener('input', function() {
+          rated[name] = parseInt(slider.value, 10);
+          val.textContent = slider.value;
+        });
+      }
       li.querySelector('.clear-tracked').addEventListener('click', function() {
         delete rated[name];
         render();

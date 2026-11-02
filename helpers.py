@@ -558,6 +558,7 @@ def parse_diary_card_emotions(form, tracked: list[str] | None = None) -> list[di
             continue
         intensity = parse_int(form.get(key))
         if intensity is None:
+            out.append({"name": name})
             continue
         out.append({"name": name, "intensity": max(1, min(5, intensity))})
     fixed_lower = {name.lower() for name in tracked_names}
