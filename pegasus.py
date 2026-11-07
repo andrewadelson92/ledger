@@ -10,6 +10,7 @@ import hmac
 import json
 import logging
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -456,12 +457,22 @@ def apply_committed_actions(email: str, actions) -> list[str]:
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
             method="POST",
         )
+        name = (item.get("responsibility_text") or "That responsibility").strip()
         try:
             with urllib.request.urlopen(req, timeout=SEND_TIMEOUT_SECONDS) as resp:
                 data = json.loads(resp.read().decode("utf-8") or "{}")
             if isinstance(data, dict) and data.get("ok") is False:
-                name = (item.get("responsibility_text") or "That responsibility").strip()
                 problems.append(f"{name}: {data.get('error') or 'could not be updated.'}")
+        except urllib.error.HTTPError as exc:
+            try:
+                data = json.loads(exc.read().decode("utf-8") or "{}")
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                data = {}
+            if isinstance(data, dict) and data.get("error"):
+                problems.append(f"{name}: {data['error']}")
+            else:
+                log.warning("Pegasus committed action HTTP %s", exc.code)
+                unreachable = True
         except Exception as exc:  # noqa: BLE001
             log.warning("Pegasus committed action failed: %s", exc)
             unreachable = True

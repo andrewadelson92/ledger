@@ -54,7 +54,7 @@
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         <div class="mb-4 rounded-md border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm text-zinc-800">
-          {% for m in messages %}{{ m }}{% endfor %}
+          {% for m in messages %}<p class="{% if not loop.first %}mt-1{% endif %}">{{ m }}</p>{% endfor %}
         </div>
       {% endif %}
     {% endwith %}
