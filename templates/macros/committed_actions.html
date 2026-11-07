@@ -64,10 +64,18 @@
       initial.forEach(function(item) {
         const text = typeof item === 'string' ? item : (item && item.text) || '';
         if (!(text || '').trim()) return;
-        const row = { text: text.trim(), responsibility_id: '', place: '', linking: false, query: '' };
+        const row = {
+          text: text.trim(),
+          responsibility_id: '',
+          place: '',
+          responsibility_text: '',
+          linking: false,
+          query: ''
+        };
         if (item && typeof item === 'object') {
           row.responsibility_id = item.responsibility_id || '';
           row.place = item.place || '';
+          row.responsibility_text = item.responsibility_text || '';
         }
         rows.push(row);
       });
@@ -84,12 +92,11 @@
   function sync() {
     hidden.value = JSON.stringify(rows.map(function(r) {
       const out = { text: r.text };
-      const resp = r.responsibility_id ? responsibilityById(r.responsibility_id) : null;
-      const allowed = resp ? placesFor(resp.state).map(function(p) { return p.value; }) : [];
-      if (resp && allowed.indexOf(r.place) !== -1) {
-        out.responsibility_id = resp.id;
+      if (r.responsibility_id && r.place) {
+        const resp = responsibilityById(r.responsibility_id);
+        out.responsibility_id = resp ? resp.id : r.responsibility_id;
         out.place = r.place;
-        out.responsibility_text = resp.text;
+        out.responsibility_text = resp ? resp.text : (r.responsibility_text || '');
       }
       return out;
     }));
@@ -117,16 +124,24 @@
           resultHtml += '<button type="button" class="lt-pick block w-full truncate px-2 py-1.5 text-left text-xs text-zinc-800 hover:bg-zinc-50" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(label) + '</button>';
         });
       }
+      const placeStillFits = places.some(function(place) { return place.value === row.place; });
       let placeOptions = '';
+      if (!placeStillFits && row.place) {
+        placeOptions += '<option value="" selected>Leave as connected</option>';
+      }
       places.forEach(function(place) {
         const selected = place.value === row.place ? ' selected' : '';
         placeOptions += '<option value="' + place.value + '"' + selected + '>' + escapeHtml(place.label) + '</option>';
       });
-      const linkHtml = !responsibilities.length ? '' : (
-        resp && !row.linking
+      const connectedName = resp ? resp.text : (row.responsibility_text || '');
+      const connectedState = resp && stateLabel[resp.state] ? ' · ' + stateLabel[resp.state] : '';
+      const linkHtml = !responsibilities.length && !connectedName ? '' : (
+        (resp || connectedName) && row.responsibility_id && !row.linking
           ? '<div class="flex flex-wrap items-center gap-2">' +
-              '<span class="min-w-0 text-xs text-zinc-500">' + escapeHtml(resp.text) + (stateLabel[resp.state] ? ' · ' + stateLabel[resp.state] : '') + '</span>' +
-              '<select class="lt-place min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs" aria-label="What to do in Long Track">' + placeOptions + '</select>' +
+              '<span class="min-w-0 text-xs text-zinc-500">' + escapeHtml(connectedName) + connectedState + '</span>' +
+              (places.length
+                ? '<select class="lt-place min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs" aria-label="What to do in Long Track">' + placeOptions + '</select>'
+                : '') +
               '<button type="button" class="lt-change shrink-0 text-xs text-zinc-400 hover:text-zinc-800">Change</button>' +
             '</div>'
           : (row.linking
@@ -235,6 +250,7 @@
       const placeSelect = li.querySelector('.lt-place');
       if (placeSelect) {
         placeSelect.addEventListener('change', function() {
+          if (!placeSelect.value) return;
           row.place = placeSelect.value;
           sync();
         });
