@@ -64,7 +64,7 @@
       initial.forEach(function(item) {
         const text = typeof item === 'string' ? item : (item && item.text) || '';
         if (!(text || '').trim()) return;
-        const row = { text: text.trim(), responsibility_id: '', place: '' };
+        const row = { text: text.trim(), responsibility_id: '', place: '', linking: false, query: '' };
         if (item && typeof item === 'object') {
           row.responsibility_id = item.responsibility_id || '';
           row.place = item.place || '';
@@ -103,28 +103,46 @@
       li.className = 'space-y-2 rounded-md border border-zinc-200 bg-white px-3 py-2';
       const resp = row.responsibility_id ? responsibilityById(row.responsibility_id) : null;
       const places = resp ? placesFor(resp.state) : [];
-      let options = '<option value="">Long Track responsibility…</option>';
-      responsibilities.forEach(function(item) {
-        const selected = String(item.id) === String(row.responsibility_id) ? ' selected' : '';
-        const label = item.text + (stateLabel[item.state] ? ' · ' + stateLabel[item.state] : '');
-        options += '<option value="' + escapeHtml(item.id) + '"' + selected + '>' + escapeHtml(label) + '</option>';
-      });
+      const query = (row.query || '').trim().toLowerCase();
+      const matches = responsibilities.filter(function(item) {
+        if (!query) return true;
+        return String(item.text || '').toLowerCase().indexOf(query) !== -1;
+      }).slice(0, 8);
+      let resultHtml = '';
+      if (!matches.length) {
+        resultHtml = '<p class="px-2 py-1.5 text-xs text-zinc-500">No match.</p>';
+      } else {
+        matches.forEach(function(item) {
+          const label = item.text + (stateLabel[item.state] ? ' · ' + stateLabel[item.state] : '');
+          resultHtml += '<button type="button" class="lt-pick block w-full truncate px-2 py-1.5 text-left text-xs text-zinc-800 hover:bg-zinc-50" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(label) + '</button>';
+        });
+      }
       let placeOptions = '';
       places.forEach(function(place) {
         const selected = place.value === row.place ? ' selected' : '';
         placeOptions += '<option value="' + place.value + '"' + selected + '>' + escapeHtml(place.label) + '</option>';
       });
+      const linkHtml = !responsibilities.length ? '' : (
+        resp && !row.linking
+          ? '<div class="flex flex-wrap items-center gap-2">' +
+              '<span class="min-w-0 text-xs text-zinc-500">' + escapeHtml(resp.text) + (stateLabel[resp.state] ? ' · ' + stateLabel[resp.state] : '') + '</span>' +
+              '<select class="lt-place min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs" aria-label="What to do in Long Track">' + placeOptions + '</select>' +
+              '<button type="button" class="lt-change shrink-0 text-xs text-zinc-400 hover:text-zinc-800">Change</button>' +
+            '</div>'
+          : (row.linking
+            ? '<div class="space-y-1">' +
+                '<input type="search" class="lt-search w-full rounded-md border border-zinc-300 px-2 py-1.5 text-xs" placeholder="Search responsibilities" value="' + escapeHtml(row.query || '') + '" aria-label="Search responsibilities">' +
+                '<div class="lt-results max-h-40 overflow-y-auto rounded-md border border-zinc-200">' + resultHtml + '</div>' +
+                '<button type="button" class="lt-cancel text-xs text-zinc-400 hover:text-zinc-800">Cancel</button>' +
+              '</div>'
+            : '<button type="button" class="lt-open text-xs text-zinc-400 hover:text-zinc-800">Connect a responsibility</button>')
+      );
       li.innerHTML =
         '<div class="flex items-start gap-2">' +
           '<input type="text" class="action-text flex-1 min-w-0 border-0 bg-transparent p-0 text-sm text-zinc-900 focus:outline-none focus:ring-0" value="' + escapeHtml(row.text) + '" aria-label="Committed action">' +
           '<button type="button" class="remove-action shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Remove action">&times;</button>' +
         '</div>' +
-        (responsibilities.length
-          ? '<div class="flex flex-wrap gap-2">' +
-              '<select class="lt-rid min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs" aria-label="Long Track responsibility">' + options + '</select>' +
-              '<select class="lt-place min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs' + (places.length ? '' : ' hidden') + '" aria-label="What to do in Long Track">' + placeOptions + '</select>' +
-            '</div>'
-          : '');
+        linkHtml;
       const textInput = li.querySelector('.action-text');
       textInput.addEventListener('input', function() {
         row.text = textInput.value;
@@ -146,17 +164,72 @@
         render();
         sync();
       });
-      const ridSelect = li.querySelector('.lt-rid');
-      if (ridSelect) {
-        ridSelect.addEventListener('change', function() {
-          row.responsibility_id = ridSelect.value;
-          const next = row.responsibility_id ? responsibilityById(row.responsibility_id) : null;
-          const nextPlaces = next ? placesFor(next.state) : [];
-          if (!nextPlaces.some(function(p) { return p.value === row.place; })) {
-            row.place = nextPlaces.length ? nextPlaces[0].value : '';
-          }
+      const openLink = li.querySelector('.lt-open');
+      if (openLink) {
+        openLink.addEventListener('click', function() {
+          row.linking = true;
+          row.query = '';
+          render();
+          const search = rowsWrap.children[index] && rowsWrap.children[index].querySelector('.lt-search');
+          if (search) { try { search.focus(); } catch (e) {} }
+        });
+      }
+      const changeLink = li.querySelector('.lt-change');
+      if (changeLink) {
+        changeLink.addEventListener('click', function() {
+          row.linking = true;
+          row.query = '';
+          render();
+          const search = rowsWrap.children[index] && rowsWrap.children[index].querySelector('.lt-search');
+          if (search) { try { search.focus(); } catch (e) {} }
+        });
+      }
+      const cancelLink = li.querySelector('.lt-cancel');
+      if (cancelLink) {
+        cancelLink.addEventListener('click', function() {
+          row.linking = false;
+          row.query = '';
           render();
           sync();
+        });
+      }
+      function resultsHtml(q) {
+        const query = (q || '').trim().toLowerCase();
+        const matches = responsibilities.filter(function(item) {
+          if (!query) return true;
+          return String(item.text || '').toLowerCase().indexOf(query) !== -1;
+        }).slice(0, 8);
+        if (!matches.length) return '<p class="px-2 py-1.5 text-xs text-zinc-500">No match.</p>';
+        return matches.map(function(item) {
+          const label = item.text + (stateLabel[item.state] ? ' · ' + stateLabel[item.state] : '');
+          return '<button type="button" class="lt-pick block w-full truncate px-2 py-1.5 text-left text-xs text-zinc-800 hover:bg-zinc-50" data-id="' + escapeHtml(item.id) + '">' + escapeHtml(label) + '</button>';
+        }).join('');
+      }
+      function bindPicks(scope) {
+        scope.querySelectorAll('.lt-pick').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            row.responsibility_id = btn.getAttribute('data-id');
+            row.linking = false;
+            row.query = '';
+            const next = responsibilityById(row.responsibility_id);
+            const nextPlaces = next ? placesFor(next.state) : [];
+            if (!nextPlaces.some(function(p) { return p.value === row.place; })) {
+              row.place = nextPlaces.length ? nextPlaces[0].value : '';
+            }
+            render();
+            sync();
+          });
+        });
+      }
+      bindPicks(li);
+      const searchInput = li.querySelector('.lt-search');
+      if (searchInput) {
+        searchInput.addEventListener('input', function() {
+          row.query = searchInput.value;
+          const box = li.querySelector('.lt-results');
+          if (!box) return;
+          box.innerHTML = resultsHtml(searchInput.value);
+          bindPicks(box);
         });
       }
       const placeSelect = li.querySelector('.lt-place');
@@ -173,7 +246,7 @@
   function addAction() {
     const text = (input.value || '').trim();
     if (!text) return;
-    rows.push({ text: text, responsibility_id: '', place: '' });
+    rows.push({ text: text, responsibility_id: '', place: '', linking: false, query: '' });
     input.value = '';
     render();
     sync();
