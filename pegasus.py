@@ -429,7 +429,7 @@ def fetch_responsibilities(email: str) -> list[dict]:
     return out
 
 
-def apply_committed_actions(email: str, actions) -> list[str]:
+def apply_committed_actions(email: str, actions, day: str | None = None) -> list[str]:
     """Send chosen links. Never raises. Returns short problems to show the user."""
     lt = long_track_url()
     token = pegasus_token()
@@ -450,6 +450,7 @@ def apply_committed_actions(email: str, actions) -> list[str]:
             "responsibility_id": rid,
             "text": text,
             "place": place,
+            "day": day or "",
         }
         req = urllib.request.Request(
             f"{lt}/api/pegasus/committed-action",

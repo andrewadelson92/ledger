@@ -1,5 +1,5 @@
 from flask import Flask, Response, render_template, request, redirect, url_for, flash, abort, jsonify
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import os
 import sys
@@ -500,8 +500,12 @@ def _push_committed_actions(entry: Entry) -> None:
     user = entry.user
     if user is None or not user.email:
         return
+    dt = entry.created_at or datetime.utcnow()
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    day = dt.astimezone(LOCAL_TZ).date().isoformat()
     for msg in pegasus.apply_committed_actions(
-        user.email, (entry.payload or {}).get("committed_actions") or []
+        user.email, (entry.payload or {}).get("committed_actions") or [], day
     ):
         flash(msg)
 
