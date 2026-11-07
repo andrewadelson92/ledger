@@ -165,7 +165,7 @@
       </div>
       {% endif %}
 
-      {% set actions = normalize_committed_actions(plan.committed_actions) %}
+      {% set actions = committed_action_items(plan.committed_actions) %}
       {% if actions %}
       <div class="border-t border-zinc-100 pt-4">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Committed actions</h3>

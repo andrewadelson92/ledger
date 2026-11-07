@@ -10,6 +10,7 @@ import hmac
 import json
 import logging
 import os
+import urllib.parse
 import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -396,6 +397,77 @@ def occurrence_for(entry) -> dict | None:
     else:
         return None
     return {"trigger_type": trigger, "label": label[:255], "detail": detail}
+
+
+def fetch_responsibilities(email: str) -> list[dict]:
+    """Non-closed Long Track responsibilities for the diary-card picker. Empty if unset or down."""
+    lt = long_track_url()
+    token = pegasus_token()
+    if not lt or not token or not (email or "").strip():
+        return []
+    query = urllib.parse.urlencode({"email": email.strip().lower()})
+    req = urllib.request.Request(
+        f"{lt}/api/pegasus/responsibilities?{query}",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=SEND_TIMEOUT_SECONDS) as resp:
+            data = json.loads(resp.read().decode("utf-8") or "{}")
+    except Exception as exc:  # noqa: BLE001 — picker hides itself
+        log.warning("Pegasus responsibility list failed: %s", exc)
+        return []
+    rows = data.get("responsibilities") if isinstance(data, dict) else None
+    if not isinstance(rows, list):
+        return []
+    out = []
+    for row in rows:
+        if not isinstance(row, dict) or not row.get("id") or not row.get("text"):
+            continue
+        out.append({"id": row["id"], "text": row["text"], "state": row.get("state") or "open"})
+    return out
+
+
+def apply_committed_actions(email: str, actions) -> list[str]:
+    """Send chosen links. Never raises. Returns short problems to show the user."""
+    lt = long_track_url()
+    token = pegasus_token()
+    if not lt or not token:
+        return []
+    problems = []
+    unreachable = False
+    for item in actions or []:
+        if not isinstance(item, dict):
+            continue
+        rid = item.get("responsibility_id")
+        place = (item.get("place") or "").strip()
+        text = (item.get("text") or "").strip()
+        if not rid or not place or not text:
+            continue
+        body = {
+            "email": (email or "").strip().lower(),
+            "responsibility_id": rid,
+            "text": text,
+            "place": place,
+        }
+        req = urllib.request.Request(
+            f"{lt}/api/pegasus/committed-action",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=SEND_TIMEOUT_SECONDS) as resp:
+                data = json.loads(resp.read().decode("utf-8") or "{}")
+            if isinstance(data, dict) and data.get("ok") is False:
+                name = (item.get("responsibility_text") or "That responsibility").strip()
+                problems.append(f"{name}: {data.get('error') or 'could not be updated.'}")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Pegasus committed action failed: %s", exc)
+            unreachable = True
+    if unreachable:
+        problems.append("Long Track could not be reached. The diary card was saved.")
+    return problems
 
 
 def send_occurrence(entry, *, base_url: str, deleted: bool = False) -> dict | None:

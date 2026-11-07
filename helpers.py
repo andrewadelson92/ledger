@@ -80,35 +80,61 @@ def agenda_slots_for_form(payload: dict | None = None) -> list[dict]:
     ]
 
 
-def normalize_committed_actions(raw) -> list[str]:
-    """List of action strings; splits legacy freeform text on newlines."""
+_COMMITTED_PLACES = frozenset({"owe", "possible", "replace"})
+
+
+def committed_action_items(raw) -> list[dict]:
+    """Committed actions, including an optional Long Track responsibility link."""
     if raw is None:
         return []
     if isinstance(raw, str):
-        return [line.strip() for line in raw.splitlines() if line.strip()]
+        return [{"text": line.strip()} for line in raw.splitlines() if line.strip()]
     if not isinstance(raw, list):
         return []
     out = []
     for item in raw:
         if isinstance(item, str):
             text = item.strip()
+            rid = None
+            place = ""
+            responsibility_text = ""
         elif isinstance(item, dict):
             text = (item.get("text") or "").strip()
+            place = (item.get("place") or "").strip()
+            if place not in _COMMITTED_PLACES:
+                place = ""
+            responsibility_text = (item.get("responsibility_text") or "").strip()
+            try:
+                rid = int(item.get("responsibility_id")) if item.get("responsibility_id") else None
+            except (TypeError, ValueError):
+                rid = None
         else:
             continue
-        if text:
-            out.append(text)
+        if not text:
+            continue
+        row = {"text": text}
+        if rid and place:
+            row["responsibility_id"] = rid
+            row["place"] = place
+            if responsibility_text:
+                row["responsibility_text"] = responsibility_text
+        out.append(row)
     return out
 
 
-def parse_committed_actions_json(raw: str | None) -> list[str]:
+def normalize_committed_actions(raw) -> list[str]:
+    """List of action strings; splits legacy freeform text on newlines."""
+    return [item["text"] for item in committed_action_items(raw)]
+
+
+def parse_committed_actions_json(raw: str | None) -> list[dict]:
     if not raw:
         return []
     try:
         data = json.loads(raw)
     except (json.JSONDecodeError, TypeError):
         return []
-    return normalize_committed_actions(data)
+    return committed_action_items(data)
 
 
 def entry_log_label(entry) -> str:

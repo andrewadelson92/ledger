@@ -74,8 +74,8 @@
 
   <div>
     {{ field_label('Committed actions') }}
-    <p class="text-sm text-zinc-600 mb-3">Concrete actions for today. Add, edit, or remove — no need to mark done here.</p>
-    {{ committed_actions_editor(normalize_committed_actions(payload.committed_actions)) }}
+    <p class="text-sm text-zinc-600 mb-3">Concrete actions for today. Add, edit, or remove — no need to mark done here.{% if long_track_responsibilities %} A line can be owed on a Long Track responsibility, or kept as a possible act when something is already owed.{% endif %}</p>
+    {{ committed_actions_editor(committed_action_items(payload.committed_actions), long_track_responsibilities|default([])) }}
   </div>
 
   <details class="rounded-lg border border-zinc-200 bg-white p-4"

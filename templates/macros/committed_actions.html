@@ -1,4 +1,4 @@
-{% macro committed_actions_editor(actions=[]) %}
+{% macro committed_actions_editor(actions=[], responsibilities=[]) %}
 <div class="committed-actions-editor space-y-3">
   <ul class="committed-action-rows space-y-2"></ul>
   <p class="text-sm text-zinc-500 empty-hint{% if actions %} hidden{% endif %}">No actions yet.</p>
@@ -14,6 +14,7 @@
   </div>
   <input type="hidden" name="committed_actions_json" class="committed-actions-json" value="">
   <script type="application/json" class="committed-actions-initial">{{ actions|tojson }}</script>
+  <script type="application/json" class="lt-responsibilities">{{ responsibilities|tojson }}</script>
 </div>
 
 <script>
@@ -28,13 +29,47 @@
   const addBtn = container.querySelector('.add-action-btn');
   const hidden = container.querySelector('.committed-actions-json');
 
+  let responsibilities = [];
+  try {
+    responsibilities = JSON.parse(container.querySelector('.lt-responsibilities').textContent || '[]');
+  } catch (e) {}
+  if (!Array.isArray(responsibilities)) responsibilities = [];
+
+  const stateLabel = {
+    open: 'Open',
+    act_required: 'Act required',
+    repair_required: 'Repair required'
+  };
+
+  function placesFor(state) {
+    if (state === 'open') return [{ value: 'owe', label: 'Make Act required' }];
+    if (state === 'act_required') {
+      return [
+        { value: 'possible', label: 'Add as a possible act' },
+        { value: 'replace', label: 'Move what is owed to possible acts, and owe this' }
+      ];
+    }
+    if (state === 'repair_required') return [{ value: 'possible', label: 'Add as a possible act' }];
+    return [];
+  }
+
+  function responsibilityById(id) {
+    return responsibilities.find(function(r) { return String(r.id) === String(id); }) || null;
+  }
+
   let rows = [];
   try {
     const initial = JSON.parse(container.querySelector('.committed-actions-initial').textContent || '[]');
     if (Array.isArray(initial)) {
       initial.forEach(function(item) {
         const text = typeof item === 'string' ? item : (item && item.text) || '';
-        if ((text || '').trim()) rows.push({ text: text.trim() });
+        if (!(text || '').trim()) return;
+        const row = { text: text.trim(), responsibility_id: '', place: '' };
+        if (item && typeof item === 'object') {
+          row.responsibility_id = item.responsibility_id || '';
+          row.place = item.place || '';
+        }
+        rows.push(row);
       });
     }
   } catch (e) {}
@@ -47,7 +82,17 @@
   }
 
   function sync() {
-    hidden.value = JSON.stringify(rows.map(function(r) { return r.text; }));
+    hidden.value = JSON.stringify(rows.map(function(r) {
+      const out = { text: r.text };
+      const resp = r.responsibility_id ? responsibilityById(r.responsibility_id) : null;
+      const allowed = resp ? placesFor(resp.state).map(function(p) { return p.value; }) : [];
+      if (resp && allowed.indexOf(r.place) !== -1) {
+        out.responsibility_id = resp.id;
+        out.place = r.place;
+        out.responsibility_text = resp.text;
+      }
+      return out;
+    }));
     emptyHint.classList.toggle('hidden', rows.length > 0);
   }
 
@@ -55,10 +100,31 @@
     rowsWrap.innerHTML = '';
     rows.forEach(function(row, index) {
       const li = document.createElement('li');
-      li.className = 'flex items-start gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2';
+      li.className = 'space-y-2 rounded-md border border-zinc-200 bg-white px-3 py-2';
+      const resp = row.responsibility_id ? responsibilityById(row.responsibility_id) : null;
+      const places = resp ? placesFor(resp.state) : [];
+      let options = '<option value="">Long Track responsibility…</option>';
+      responsibilities.forEach(function(item) {
+        const selected = String(item.id) === String(row.responsibility_id) ? ' selected' : '';
+        const label = item.text + (stateLabel[item.state] ? ' · ' + stateLabel[item.state] : '');
+        options += '<option value="' + escapeHtml(item.id) + '"' + selected + '>' + escapeHtml(label) + '</option>';
+      });
+      let placeOptions = '';
+      places.forEach(function(place) {
+        const selected = place.value === row.place ? ' selected' : '';
+        placeOptions += '<option value="' + place.value + '"' + selected + '>' + escapeHtml(place.label) + '</option>';
+      });
       li.innerHTML =
-        '<input type="text" class="action-text flex-1 min-w-0 border-0 bg-transparent p-0 text-sm text-zinc-900 focus:outline-none focus:ring-0" value="' + escapeHtml(row.text) + '" aria-label="Committed action">' +
-        '<button type="button" class="remove-action shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Remove action">&times;</button>';
+        '<div class="flex items-start gap-2">' +
+          '<input type="text" class="action-text flex-1 min-w-0 border-0 bg-transparent p-0 text-sm text-zinc-900 focus:outline-none focus:ring-0" value="' + escapeHtml(row.text) + '" aria-label="Committed action">' +
+          '<button type="button" class="remove-action shrink-0 text-sm leading-none text-zinc-400 hover:text-zinc-900" aria-label="Remove action">&times;</button>' +
+        '</div>' +
+        (responsibilities.length
+          ? '<div class="flex flex-wrap gap-2">' +
+              '<select class="lt-rid min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs" aria-label="Long Track responsibility">' + options + '</select>' +
+              '<select class="lt-place min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs' + (places.length ? '' : ' hidden') + '" aria-label="What to do in Long Track">' + placeOptions + '</select>' +
+            '</div>'
+          : '');
       const textInput = li.querySelector('.action-text');
       textInput.addEventListener('input', function() {
         row.text = textInput.value;
@@ -80,6 +146,26 @@
         render();
         sync();
       });
+      const ridSelect = li.querySelector('.lt-rid');
+      if (ridSelect) {
+        ridSelect.addEventListener('change', function() {
+          row.responsibility_id = ridSelect.value;
+          const next = row.responsibility_id ? responsibilityById(row.responsibility_id) : null;
+          const nextPlaces = next ? placesFor(next.state) : [];
+          if (!nextPlaces.some(function(p) { return p.value === row.place; })) {
+            row.place = nextPlaces.length ? nextPlaces[0].value : '';
+          }
+          render();
+          sync();
+        });
+      }
+      const placeSelect = li.querySelector('.lt-place');
+      if (placeSelect) {
+        placeSelect.addEventListener('change', function() {
+          row.place = placeSelect.value;
+          sync();
+        });
+      }
       rowsWrap.appendChild(li);
     });
   }
@@ -87,7 +173,7 @@
   function addAction() {
     const text = (input.value || '').trim();
     if (!text) return;
-    rows.push({ text: text });
+    rows.push({ text: text, responsibility_id: '', place: '' });
     input.value = '';
     render();
     sync();
@@ -111,7 +197,10 @@
         input.value = '';
       }
       rows = rows
-        .map(function(r) { return { text: (r.text || '').trim() }; })
+        .map(function(r) {
+          r.text = (r.text || '').trim();
+          return r;
+        })
         .filter(function(r) { return r.text; });
       render();
       sync();
@@ -128,7 +217,7 @@
 {% if actions %}
 <ul class="space-y-2">
   {% for action in actions %}
-  <li class="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">{{ action }}</li>
+  <li class="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 whitespace-pre-wrap">{% if action is mapping %}{{ action.text }}{% if action.responsibility_text %} <span class="text-zinc-500">· {{ action.responsibility_text }}</span>{% endif %}{% else %}{{ action }}{% endif %}</li>
   {% endfor %}
 </ul>
 {% endif %}

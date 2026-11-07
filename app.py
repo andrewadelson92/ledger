@@ -96,6 +96,7 @@ from helpers import (
     emotion_wheel_excluding,
     daily_planner_focus,
     daily_planner_has_diary,
+    committed_action_items,
     normalize_committed_actions,
     diary_card_extra_emotions,
     mantra_library_items,
@@ -192,6 +193,7 @@ def inject_globals():
         "format_planner_hour": format_planner_hour,
         "daily_planner_focus": daily_planner_focus,
         "daily_planner_has_diary": daily_planner_has_diary,
+        "committed_action_items": committed_action_items,
         "normalize_committed_actions": normalize_committed_actions,
         "current_user": current_user,
         "is_demo": _is_demo,
@@ -217,6 +219,7 @@ for _name, _fn in (
     ("format_planner_hour", format_planner_hour),
     ("daily_planner_focus", daily_planner_focus),
     ("daily_planner_has_diary", daily_planner_has_diary),
+    ("committed_action_items", committed_action_items),
     ("normalize_committed_actions", normalize_committed_actions),
 ):
     app.add_template_global(_fn, _name)
@@ -481,12 +484,26 @@ def _save_daily_planner(payload: dict) -> Entry:
         _touch_entry(existing)
         db.session.commit()
         _pegasus_notify(existing)
+        _push_committed_actions(existing)
         return existing
     entry = _make_entry(type="daily_planner", payload=payload)
     db.session.add(entry)
     db.session.commit()
     _pegasus_notify(entry)
+    _push_committed_actions(entry)
     return entry
+
+
+def _push_committed_actions(entry: Entry) -> None:
+    if entry.type != "daily_planner":
+        return
+    user = entry.user
+    if user is None or not user.email:
+        return
+    for msg in pegasus.apply_committed_actions(
+        user.email, (entry.payload or {}).get("committed_actions") or []
+    ):
+        flash(msg)
 
 
 def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=None, **extra):
@@ -526,6 +543,8 @@ def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=Non
         ctx["default_target_behaviors"] = list(
             prefs.target_behaviors or DEFAULT_TARGET_BEHAVIORS
         )
+        email = current_user.email if current_user.is_authenticated else ""
+        ctx["long_track_responsibilities"] = pegasus.fetch_responsibilities(email)
     if entry_type == "diary_card":
         prefs = get_or_create_preferences()
         tracked = list(prefs.diary_emotions or DIARY_CARD_EMOTIONS)
@@ -1198,6 +1217,7 @@ def entry_edit(entry_id):
             _sync_journal_audio(entry, payload.get("audio_clip_ids") or [])
         db.session.commit()
         _pegasus_notify(entry)
+        _push_committed_actions(entry)
         flash("Entry updated.")
         if entry.type in ("daily_goal", "daily_planner"):
             return redirect(url_for("index", tab="today"))
