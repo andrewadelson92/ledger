@@ -757,6 +757,12 @@ def new_entry(entry_type):
                     f"forms/{entry_type}.html",
                     **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
                 )
+        if entry_type == "thought_record" and not payload.get("automatic_thought"):
+            flash("Thoughts are required.")
+            return render_template(
+                f"forms/{entry_type}.html",
+                **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+            )
         if entry_type == "behavioral_activation":
             if not payload.get("activity") or not payload.get("planned_datetime"):
                 flash("Activity and planned date & time are required.")
@@ -1093,6 +1099,20 @@ def entry_edit(entry_id):
             payload, linked_entry_id, secondary_tag = payload_for_type(entry.type, request.form)
         if entry.type == "journal" and not payload.get("text") and not payload.get("audio_clip_ids"):
             flash("Write something or record audio.")
+            return render_template(
+                f"forms/{entry.type}.html",
+                **_form_render_ctx(
+                    entry.type,
+                    payload,
+                    is_edit=True,
+                    entry_id=entry.id,
+                    exposure_plans=[],
+                    linked_entry_id=entry.linked_entry_id,
+                    secondary_tag=entry.secondary_tag,
+                ),
+            )
+        if entry.type == "thought_record" and not payload.get("automatic_thought"):
+            flash("Thoughts are required.")
             return render_template(
                 f"forms/{entry.type}.html",
                 **_form_render_ctx(

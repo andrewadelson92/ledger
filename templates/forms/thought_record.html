@@ -14,8 +14,8 @@
   {{ scale_field(payload) }}
 
   <div>
-    {{ field_label('Situation', true) }}
-    {{ text_input('situation', payload.situation or '', rows=3, required=true) }}
+    {{ field_label('Situation') }}
+    {{ text_input('situation', payload.situation or '', rows=3) }}
   </div>
 
   <div>
