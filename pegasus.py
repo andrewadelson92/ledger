@@ -425,7 +425,16 @@ def fetch_responsibilities(email: str) -> list[dict]:
     for row in rows:
         if not isinstance(row, dict) or not row.get("id") or not row.get("text"):
             continue
-        out.append({"id": row["id"], "text": row["text"], "state": row.get("state") or "open"})
+        try:
+            rid = int(row["id"])
+        except (TypeError, ValueError):
+            continue
+        out.append({
+            "id": rid,
+            "text": row["text"],
+            "state": row.get("state") or "open",
+            "act": (row.get("act") or "").strip(),
+        })
     return out
 
 

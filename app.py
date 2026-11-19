@@ -344,13 +344,27 @@ def index():
         if t not in ADD_HIDDEN_TYPES and t != "daily_planner"
     ]
     today_label = datetime.now(LOCAL_TZ).strftime("%A, %b %d")
+    planner = _todays_daily_planner()
+    used_responsibility_ids = set()
+    if planner is not None:
+        used_responsibility_ids = {
+            item.get("responsibility_id")
+            for item in committed_action_items((planner.payload or {}).get("committed_actions"))
+            if item.get("responsibility_id")
+        }
+    act_required = (
+        _long_track_act_required(used_responsibility_ids)
+        if tab == "today" and planner is not None
+        else []
+    )
     return render_template(
         "index.html",
         cards=cards,
         tab=tab,
         add_options=add_options,
         in_progress_items=in_progress_items,
-        todays_daily_planner=_todays_daily_planner(),
+        todays_daily_planner=planner,
+        long_track_act_required=act_required,
         invoked_mantras=todays_invoked_mantras(entries, LOCAL_TZ),
         mantra_library=mantra_library_items(
             (lib.payload if (lib := _current_mantras()) else None)
@@ -360,6 +374,52 @@ def index():
         daily_planner_has_diary=daily_planner_has_diary,
         diary_card_emotion_values=diary_card_emotion_values,
     )
+
+
+@app.route("/today/committed-action", methods=["POST"])
+def today_add_committed_action():
+    """Append one committed action onto today's card without reopening the day."""
+    entry = _todays_daily_planner()
+    if entry is None:
+        flash("Start today before adding a committed action.")
+        return redirect(url_for("index", tab="today"))
+    payload = dict(entry.payload or {})
+    actions = committed_action_items(payload.get("committed_actions"))
+    rid_raw = (request.form.get("responsibility_id") or "").strip()
+    if rid_raw:
+        try:
+            rid = int(rid_raw)
+        except (TypeError, ValueError):
+            rid = None
+        match = next(
+            (row for row in pegasus.fetch_responsibilities(current_user.email or "") if row.get("id") == rid),
+            None,
+        )
+        act = ((match or {}).get("act") or "").strip()
+        if not match or match.get("state") != "act_required" or not act:
+            flash("That action required is no longer available.")
+            return redirect(url_for("index", tab="today"))
+        if any(item.get("responsibility_id") == rid for item in actions):
+            flash("Already a committed action today.")
+            return redirect(url_for("index", tab="today"))
+        actions.append({
+            "text": act,
+            "responsibility_id": rid,
+            "place": "owe",
+            "responsibility_text": (match.get("text") or "").strip(),
+        })
+    else:
+        text = (request.form.get("text") or "").strip()
+        if not text:
+            flash("Add an action.")
+            return redirect(url_for("index", tab="today"))
+        actions.append({"text": text})
+    payload["committed_actions"] = actions
+    entry.payload = payload
+    _touch_entry(entry)
+    db.session.commit()
+    _push_committed_actions(entry)
+    return redirect(url_for("index", tab="today"))
 
 
 def _get_entry_or_404(entry_id: int) -> Entry:
@@ -508,6 +568,20 @@ def _push_committed_actions(entry: Entry) -> None:
         user.email, (entry.payload or {}).get("committed_actions") or [], day
     ):
         flash(msg)
+
+
+def _long_track_act_required(used_ids: set) -> list[dict]:
+    """Named acts already owed in Long Track, excluding ones on today's card."""
+    email = current_user.email if current_user.is_authenticated else ""
+    out = []
+    for row in pegasus.fetch_responsibilities(email):
+        if row.get("state") != "act_required":
+            continue
+        act = (row.get("act") or "").strip()
+        if not act or row.get("id") in used_ids:
+            continue
+        out.append(row)
+    return out
 
 
 def _form_render_ctx(entry_type: str, payload: dict | None, entry=None, form=None, **extra):

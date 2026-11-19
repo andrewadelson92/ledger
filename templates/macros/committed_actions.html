@@ -12,6 +12,7 @@
       Add
     </button>
   </div>
+  <div class="act-required-picks space-y-2"></div>
   <input type="hidden" name="committed_actions_json" class="committed-actions-json" value="">
   <script type="application/json" class="committed-actions-initial">{{ actions|tojson }}</script>
   <script type="application/json" class="lt-responsibilities">{{ responsibilities|tojson }}</script>
@@ -41,13 +42,20 @@
     repair_required: 'Repair required'
   };
 
-  function placesFor(state) {
+  function placesFor(resp, row) {
+    const state = resp && resp.state;
     if (state === 'open') return [{ value: 'owe', label: 'Make Act required' }];
     if (state === 'act_required') {
-      return [
+      const places = [];
+      const act = (resp.act || '').trim();
+      if (act && row && (row.text || '').trim() === act) {
+        places.push({ value: 'owe', label: 'Due today' });
+      }
+      places.push(
         { value: 'possible', label: 'Add as a possible act' },
         { value: 'replace', label: 'Move what is owed to possible acts, and owe this' }
-      ];
+      );
+      return places;
     }
     if (state === 'repair_required') return [{ value: 'possible', label: 'Add as a possible act' }];
     return [];
@@ -109,7 +117,7 @@
       const li = document.createElement('li');
       li.className = 'space-y-2 rounded-md border border-zinc-200 bg-white px-3 py-2';
       const resp = row.responsibility_id ? responsibilityById(row.responsibility_id) : null;
-      const places = resp ? placesFor(resp.state) : [];
+      const places = resp ? placesFor(resp, row) : [];
       const query = (row.query || '').trim().toLowerCase();
       const matches = responsibilities.filter(function(item) {
         if (!query) return true;
@@ -227,7 +235,7 @@
             row.linking = false;
             row.query = '';
             const next = responsibilityById(row.responsibility_id);
-            const nextPlaces = next ? placesFor(next.state) : [];
+            const nextPlaces = next ? placesFor(next, row) : [];
             if (!nextPlaces.some(function(p) { return p.value === row.place; })) {
               row.place = nextPlaces.length ? nextPlaces[0].value : '';
             }
@@ -256,6 +264,56 @@
         });
       }
       rowsWrap.appendChild(li);
+    });
+    renderActPicks();
+  }
+
+  function unusedActRequired() {
+    const used = {};
+    rows.forEach(function(row) {
+      if (row.responsibility_id) used[String(row.responsibility_id)] = true;
+    });
+    return responsibilities.filter(function(item) {
+      return item.state === 'act_required' && (item.act || '').trim() && !used[String(item.id)];
+    });
+  }
+
+  function renderActPicks() {
+    const box = container.querySelector('.act-required-picks');
+    if (!box) return;
+    const items = unusedActRequired();
+    if (!items.length) {
+      box.innerHTML = '';
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    let html = '<p class="text-xs text-zinc-500">Action required in Long Track</p><ul class="space-y-2">';
+    items.forEach(function(item) {
+      html += '<li class="flex items-start gap-2">' +
+        '<p class="min-w-0 flex-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900">' +
+          escapeHtml(item.act) + ' <span class="text-zinc-500">· ' + escapeHtml(item.text) + '</span></p>' +
+        '<button type="button" class="use-act shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50" data-id="' +
+          escapeHtml(item.id) + '">Use today</button></li>';
+    });
+    html += '</ul>';
+    box.innerHTML = html;
+    box.querySelectorAll('.use-act').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const item = responsibilityById(btn.getAttribute('data-id'));
+        const act = item && (item.act || '').trim();
+        if (!item || !act) return;
+        rows.push({
+          text: act,
+          responsibility_id: item.id,
+          place: 'owe',
+          responsibility_text: item.text || '',
+          linking: false,
+          query: ''
+        });
+        render();
+        sync();
+      });
     });
   }
 

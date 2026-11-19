@@ -166,13 +166,46 @@
       {% endif %}
 
       {% set actions = committed_action_items(plan.committed_actions) %}
-      {% if actions %}
       <div class="border-t border-zinc-100 pt-4">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Committed actions</h3>
+        {% if actions %}
         {% from "macros/committed_actions.html" import committed_actions_list %}
         {{ committed_actions_list(actions) }}
+        {% endif %}
+        <form method="post" action="{{ url_for('today_add_committed_action') }}" class="{% if actions %}mt-3 {% endif %}flex gap-2">
+          <input type="text" name="text"
+            class="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            placeholder="Add an action…"
+            autocomplete="off"
+            aria-label="Committed action">
+          <button type="submit"
+            class="shrink-0 rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
+            Add
+          </button>
+        </form>
+        {% if long_track_act_required %}
+        <div class="mt-3">
+          <p class="mb-2 text-xs text-zinc-500">Action required in Long Track</p>
+          <ul class="space-y-2">
+            {% for item in long_track_act_required %}
+            <li>
+              <form method="post" action="{{ url_for('today_add_committed_action') }}" class="flex items-start gap-2">
+                <input type="hidden" name="responsibility_id" value="{{ item.id }}">
+                <p class="min-w-0 flex-1 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900">
+                  {{ item.act }}
+                  <span class="text-zinc-500">· {{ item.text }}</span>
+                </p>
+                <button type="submit"
+                  class="shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50">
+                  Use today
+                </button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
 
       {% if plan.agenda %}
       <div class="border-t border-zinc-100 pt-4">
