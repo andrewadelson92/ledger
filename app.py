@@ -353,11 +353,12 @@ def index():
             for item in committed_action_items((planner.payload or {}).get("committed_actions"))
             if item.get("responsibility_id")
         }
-    act_required = (
-        _long_track_act_required(used_responsibility_ids)
+    responsibilities = (
+        pegasus.fetch_responsibilities(current_user.email or "")
         if tab == "today" and planner is not None
         else []
     )
+    act_required = _long_track_act_required(responsibilities, used_responsibility_ids)
     return render_template(
         "index.html",
         cards=cards,
@@ -365,6 +366,7 @@ def index():
         add_options=add_options,
         in_progress_items=in_progress_items,
         todays_daily_planner=planner,
+        long_track_responsibilities=responsibilities,
         long_track_act_required=act_required,
         invoked_mantras=todays_invoked_mantras(entries, LOCAL_TZ),
         mantra_library=mantra_library_items(
@@ -415,6 +417,65 @@ def today_add_committed_action():
             flash("Add an action.")
             return redirect(url_for("index", tab="today"))
         actions.append({"text": text})
+    payload["committed_actions"] = actions
+    entry.payload = payload
+    _touch_entry(entry)
+    db.session.commit()
+    _push_committed_actions(entry)
+    return redirect(url_for("index", tab="today"))
+
+
+def _link_places(resp: dict | None, action_text: str) -> list[str]:
+    """Places Long Track will accept for this responsibility and this sentence."""
+    if not resp:
+        return []
+    state = resp.get("state")
+    act = (resp.get("act") or "").strip()
+    text = (action_text or "").strip()
+    if state == "open":
+        return ["owe"]
+    if state == "act_required":
+        places = ["owe"] if act and act == text else []
+        return places + ["possible", "replace"]
+    if state == "repair_required":
+        return ["possible"]
+    return []
+
+
+@app.route("/today/committed-action/link", methods=["POST"])
+def today_link_committed_action():
+    """Attach a Long Track responsibility to one of today's committed actions."""
+    entry = _todays_daily_planner()
+    if entry is None:
+        flash("Start today before connecting a responsibility.")
+        return redirect(url_for("index", tab="today"))
+    payload = dict(entry.payload or {})
+    actions = committed_action_items(payload.get("committed_actions"))
+    try:
+        index = int(request.form.get("index"))
+    except (TypeError, ValueError):
+        index = -1
+    if index < 0 or index >= len(actions):
+        flash("That committed action is no longer on today.")
+        return redirect(url_for("index", tab="today"))
+    try:
+        rid = int(request.form.get("responsibility_id") or "")
+    except (TypeError, ValueError):
+        rid = None
+    place = (request.form.get("place") or "").strip()
+    match = next(
+        (row for row in pegasus.fetch_responsibilities(current_user.email or "") if row.get("id") == rid),
+        None,
+    )
+    if place not in _link_places(match, actions[index]["text"]):
+        flash("That connection is no longer available.")
+        return redirect(url_for("index", tab="today"))
+    actions[index] = {
+        "text": actions[index]["text"],
+        "responsibility_id": rid,
+        "place": place,
+        "responsibility_text": (match.get("text") or "").strip(),
+    }
     payload["committed_actions"] = actions
     entry.payload = payload
     _touch_entry(entry)
@@ -571,11 +632,10 @@ def _push_committed_actions(entry: Entry) -> None:
         flash(msg)
 
 
-def _long_track_act_required(used_ids: set) -> list[dict]:
+def _long_track_act_required(rows: list[dict], used_ids: set) -> list[dict]:
     """Named acts already owed in Long Track, excluding ones on today's card."""
-    email = current_user.email if current_user.is_authenticated else ""
     out = []
-    for row in pegasus.fetch_responsibilities(email):
+    for row in rows:
         if row.get("state") != "act_required":
             continue
         act = (row.get("act") or "").strip()

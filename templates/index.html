@@ -169,8 +169,70 @@
       <div class="border-t border-zinc-100 pt-4">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 mb-2">Committed actions</h3>
         {% if actions %}
-        {% from "macros/committed_actions.html" import committed_actions_list %}
-        {{ committed_actions_list(actions) }}
+        <ul class="space-y-2">
+          {% for action in actions %}
+          <li class="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+            <p class="text-sm text-zinc-900 whitespace-pre-wrap">{{ action.text }}{% if action.responsibility_text %} <span class="text-zinc-500">· {{ action.responsibility_text }}</span>{% endif %}</p>
+            {% if not action.responsibility_id and long_track_responsibilities %}
+            <details class="mt-2">
+              <summary class="cursor-pointer list-none text-xs text-zinc-500 hover:text-zinc-900">Connect a responsibility</summary>
+              <form method="post" action="{{ url_for('today_link_committed_action') }}" class="connect-responsibility mt-2 space-y-2" data-action-text="{{ action.text }}">
+                <input type="hidden" name="index" value="{{ loop.index0 }}">
+                <select name="responsibility_id" required class="connect-resp w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm">
+                  <option value="">Choose a responsibility…</option>
+                  {% for r in long_track_responsibilities %}
+                  <option value="{{ r.id }}" data-state="{{ r.state }}" data-act="{{ r.act or '' }}">{{ r.text }}{% if r.state == 'act_required' %} · Act required{% elif r.state == 'repair_required' %} · Repair required{% else %} · Open{% endif %}</option>
+                  {% endfor %}
+                </select>
+                <select name="place" required disabled class="connect-place w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm">
+                  <option value="">What to do in Long Track</option>
+                </select>
+                <button type="submit" class="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50">Connect</button>
+              </form>
+            </details>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        <script>
+        (function() {
+          function placesFor(state, act, text) {
+            if (state === 'open') return [{ value: 'owe', label: 'Make Act required' }];
+            if (state === 'act_required') {
+              var places = [];
+              if (act && act === text) places.push({ value: 'owe', label: 'Keep as the owed act' });
+              places.push(
+                { value: 'possible', label: 'Add as a possible act' },
+                { value: 'replace', label: 'Move what is owed to possible acts, and owe this' }
+              );
+              return places;
+            }
+            if (state === 'repair_required') return [{ value: 'possible', label: 'Add as a possible act' }];
+            return [];
+          }
+          document.querySelectorAll('.connect-responsibility').forEach(function(form) {
+            var resp = form.querySelector('.connect-resp');
+            var place = form.querySelector('.connect-place');
+            var text = form.getAttribute('data-action-text') || '';
+            resp.addEventListener('change', function() {
+              var option = resp.options[resp.selectedIndex];
+              var choices = option && option.value
+                ? placesFor(option.getAttribute('data-state'), option.getAttribute('data-act') || '', text)
+                : [];
+              place.innerHTML = '';
+              if (!choices.length) {
+                place.disabled = true;
+                place.appendChild(new Option('What to do in Long Track', ''));
+                return;
+              }
+              choices.forEach(function(choice) {
+                place.appendChild(new Option(choice.label, choice.value));
+              });
+              place.disabled = false;
+            });
+          });
+        })();
+        </script>
         {% endif %}
         <form method="post" action="{{ url_for('today_add_committed_action') }}" class="{% if actions %}mt-3 {% endif %}flex gap-2">
           <input type="text" name="text"
