@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "macros/forms.html" import field_label, text_input, form_actions %}
+
+{% block document_title %}Ledger · {{ entry_label }}{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-zinc-900 mb-2">{{ 'Edit' if is_edit else 'New' }} {{ entry_label }}</h1>
+<p class="text-sm text-zinc-600 mb-6">Prepare for a situation before it happens. Describe it, decide how you will cope, rehearse that in your mind, then relax.</p>
+
+<form method="post"
+  action="{{ url_for('entry_edit', entry_id=entry_id) if is_edit else url_for('new_entry', entry_type=entry_type) }}"
+  class="space-y-8">
+
+  <section class="space-y-4">
+    <div>
+      <h2 class="text-sm font-medium text-zinc-800">1. Describe the situation</h2>
+      <p class="mt-1 text-sm text-zinc-600">The situation likely to prompt a problem behavior. Check the facts. Be specific.</p>
+    </div>
+    <div>
+      {{ field_label('Situation', true) }}
+      {{ text_input('situation', payload.situation or '', rows=4, required=true, placeholder='Who is there, where, and what is likely to happen…') }}
+    </div>
+    <div>
+      {{ field_label('Emotions and actions that could get in the way') }}
+      <p class="mb-2 text-sm text-zinc-600">Name what is most likely to interfere with using your skills.</p>
+      {{ text_input('interfering', payload.interfering or '', rows=3, placeholder='The emotion, the urge, what you usually do…') }}
+    </div>
+  </section>
+
+  <section class="space-y-4">
+    <div>
+      <h2 class="text-sm font-medium text-zinc-800">2. Decide how you will cope</h2>
+      <p class="mt-1 text-sm text-zinc-600">Which coping or problem-solving skills you will use. Write out how, in detail, including your emotions and action urges.</p>
+    </div>
+    {{ text_input('coping_plan', payload.coping_plan or '', rows=5, placeholder='The skill, when you will use it, and exactly what you will do…') }}
+  </section>
+
+  <section class="space-y-4">
+    <div>
+      <h2 class="text-sm font-medium text-zinc-800">3. Imagine the situation</h2>
+      <p class="mt-1 text-sm text-zinc-600">Imagine yourself in the situation now, as vividly as you can. Not watching yourself from the outside.</p>
+    </div>
+  </section>
+
+  <section class="space-y-4">
+    <div>
+      <h2 class="text-sm font-medium text-zinc-800">4. Rehearse coping effectively</h2>
+      <p class="mt-1 text-sm text-zinc-600">In your mind, rehearse your actions, your thoughts, what you say, and how you say it.</p>
+    </div>
+    <div>
+      {{ field_label('What you will do, think, and say') }}
+      {{ text_input('rehearsal', payload.rehearsal or '', rows=4, placeholder='The words, the tone, the action…') }}
+    </div>
+    <div>
+      {{ field_label('New problems that could come up') }}
+      <p class="mb-2 text-sm text-zinc-600">Rehearse coping with those too.</p>
+      {{ text_input('new_problems', payload.new_problems or '', rows=3, placeholder='If this happens, I will…') }}
+    </div>
+    <div>
+      {{ field_label('The catastrophe you fear most') }}
+      <p class="mb-2 text-sm text-zinc-600">Rehearse coping with that outcome.</p>
+      {{ text_input('catastrophe', payload.catastrophe or '', rows=3, placeholder='The worst you fear, and how you will cope…') }}
+    </div>
+  </section>
+
+  <section class="space-y-4">
+    <div>
+      <h2 class="text-sm font-medium text-zinc-800">5. Relax after rehearsing</h2>
+      <p class="mt-1 text-sm text-zinc-600">Practice relaxation when the rehearsal is done.</p>
+    </div>
+    {{ text_input('relaxation', payload.relaxation or '', rows=3, placeholder='Paced breathing, a short walk, muscle relaxation…') }}
+  </section>
+
+  {{ form_actions(url_for('entry_detail', entry_id=entry_id) if is_edit else url_for('index', tab='add'), review=mark_for_review|default(false)) }}
+</form>
+{% endblock %}

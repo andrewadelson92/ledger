@@ -119,6 +119,7 @@ REVIEWABLE_TYPES = frozenset({
     "chain_analysis",
     "exposure_plan",
     "exposure_checkin",
+    "cope_ahead",
     "journal",
 })
 
@@ -837,6 +838,12 @@ def new_entry(entry_type):
                 f"forms/{entry_type}.html",
                 **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
             )
+        if entry_type == "cope_ahead" and not payload.get("situation"):
+            flash("Describe the situation.")
+            return render_template(
+                f"forms/{entry_type}.html",
+                **_form_render_ctx(entry_type, payload, is_edit=False, exposure_plans=[]),
+            )
         if entry_type == "behavioral_activation":
             if not payload.get("activity") or not payload.get("planned_datetime"):
                 flash("Activity and planned date & time are required.")
@@ -1187,6 +1194,20 @@ def entry_edit(entry_id):
             )
         if entry.type == "thought_record" and not payload.get("automatic_thought"):
             flash("Thoughts are required.")
+            return render_template(
+                f"forms/{entry.type}.html",
+                **_form_render_ctx(
+                    entry.type,
+                    payload,
+                    is_edit=True,
+                    entry_id=entry.id,
+                    exposure_plans=[],
+                    linked_entry_id=entry.linked_entry_id,
+                    secondary_tag=entry.secondary_tag,
+                ),
+            )
+        if entry.type == "cope_ahead" and not payload.get("situation"):
+            flash("Describe the situation.")
             return render_template(
                 f"forms/{entry.type}.html",
                 **_form_render_ctx(

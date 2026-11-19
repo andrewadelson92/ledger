@@ -258,6 +258,9 @@ def entry_summary(entry) -> str:
     if t == "chain_analysis":
         return _truncate(p.get("problem_behavior") or p.get("prompting_event")) or "Chain analysis"
 
+    if t == "cope_ahead":
+        return _truncate(p.get("situation")) or "Cope ahead"
+
     if t == "exposure_plan":
         sit = _truncate(p.get("situation"), 60)
         if exposure_is_complete(p):
@@ -841,6 +844,17 @@ def payload_for_type(entry_type: str, form) -> tuple[dict[str, Any], int | None,
             "consequences_short_term": (form.get("consequences_short_term") or "").strip(),
             "consequences_long_term": (form.get("consequences_long_term") or "").strip(),
             "prevention_plan": (form.get("prevention_plan") or "").strip(),
+        }
+
+    elif entry_type == "cope_ahead":
+        payload = {
+            "situation": (form.get("situation") or "").strip(),
+            "interfering": (form.get("interfering") or "").strip(),
+            "coping_plan": (form.get("coping_plan") or "").strip(),
+            "rehearsal": (form.get("rehearsal") or "").strip(),
+            "new_problems": (form.get("new_problems") or "").strip(),
+            "catastrophe": (form.get("catastrophe") or "").strip(),
+            "relaxation": (form.get("relaxation") or "").strip(),
         }
 
     elif entry_type == "exposure_plan":

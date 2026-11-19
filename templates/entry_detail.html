@@ -530,6 +530,26 @@
   {% endif %}
 </section>
 
+{% elif entry.type == 'cope_ahead' %}
+<section class="space-y-4">
+  {% for label, key in [
+    ('Situation', 'situation'),
+    ('Emotions and actions that could get in the way', 'interfering'),
+    ('How you will cope', 'coping_plan'),
+    ('What you will do, think, and say', 'rehearsal'),
+    ('New problems that could come up', 'new_problems'),
+    ('The catastrophe you fear most', 'catastrophe'),
+    ('Relaxation after rehearsing', 'relaxation'),
+  ] %}
+  {% if p[key] %}
+  <div class="rounded-lg border border-zinc-200 bg-white p-4">
+    <h2 class="text-sm font-medium text-zinc-800 mb-1">{{ label }}</h2>
+    <p class="text-sm text-zinc-700 whitespace-pre-wrap">{{ p[key] }}</p>
+  </div>
+  {% endif %}
+  {% endfor %}
+</section>
+
 {% elif entry.type == 'journal' %}
 {% if linked_diary_card %}
 <div class="mb-4 rounded-lg border border-zinc-200 bg-zinc-100 p-4 text-sm">

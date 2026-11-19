@@ -13,6 +13,7 @@ ENTRY_TYPES = [
     "chain_analysis",
     "exposure_plan",
     "exposure_checkin",
+    "cope_ahead",
     "journal",
 ]
 
@@ -31,6 +32,7 @@ ENTRY_TYPE_LABELS = {
     "chain_analysis": "Chain Analysis",
     "exposure_plan": "Exposure",
     "exposure_checkin": "Exposure Check-In",
+    "cope_ahead": "Cope Ahead",
     "journal": "Journal",
 }
 

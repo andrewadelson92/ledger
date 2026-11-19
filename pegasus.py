@@ -48,6 +48,7 @@ OCCURRENCE_ENTRY_TYPES = frozenset(
         "thought_record",
         "abc",
         "chain_analysis",
+        "cope_ahead",
     }
 )
 
@@ -63,6 +64,7 @@ DISCUSS_TYPES = (
     "thought_record",
     "opposite_action",
     "abc",
+    "cope_ahead",
     "behavioral_activation",
     "exposure_plan",
     "exposure_checkin",
@@ -172,6 +174,16 @@ def _discuss_fields(entry) -> list[list[str]]:
             ("Consequence", p.get("consequence")),
             ("Alternate belief", p.get("alternate_belief")),
             ("Alternate consequence", p.get("alternate_consequence")),
+        ])
+    if t == "cope_ahead":
+        return _fields([
+            ("Situation", p.get("situation")),
+            ("In the way", p.get("interfering")),
+            ("How you will cope", p.get("coping_plan")),
+            ("Rehearsal", p.get("rehearsal")),
+            ("New problems", p.get("new_problems")),
+            ("Most feared catastrophe", p.get("catastrophe")),
+            ("Relaxation", p.get("relaxation")),
         ])
     if t == "behavioral_activation":
         return _fields([
@@ -393,7 +405,7 @@ def occurrence_for(entry) -> dict | None:
         if not exposure_is_complete(p):
             return None
         trigger, label = "exposure", "Exposure"
-    elif t in ("thought_record", "abc", "chain_analysis"):
+    elif t in ("thought_record", "abc", "chain_analysis", "cope_ahead"):
         trigger, label = t, type_label(t)
     else:
         return None
