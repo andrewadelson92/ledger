@@ -49,7 +49,7 @@
       const places = [];
       const act = (resp.act || '').trim();
       if (act && row && (row.text || '').trim() === act) {
-        places.push({ value: 'owe', label: 'Due today' });
+        places.push({ value: 'owe', label: 'Keep as the owed act' });
       }
       places.push(
         { value: 'possible', label: 'Add as a possible act' },
